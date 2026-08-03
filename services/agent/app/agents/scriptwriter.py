@@ -87,11 +87,17 @@ def _line_evidence(seg: Segment, seg_claims: list[Claim]) -> EvidenceStatus:
 def _caption_for(seg: Segment, seg_claims: list[Claim],
                  research_by_claim: dict[str, list[ResearchResult]]) -> str:
     for c in seg_claims:
-        if c.verification_status in (EvidenceStatus.PRIMARY_SOURCE_CONFIRMED,
-                                     EvidenceStatus.MULTIPLE_SOURCES_CONFIRMED):
-            sources = research_by_claim.get(c.id, [])
-            src = f"（出典: {sources[0].source_domain}）" if sources else ""
-            return f"{c.claim_text}{src}"
+        if c.verification_status not in (EvidenceStatus.PRIMARY_SOURCE_CONFIRMED,
+                                         EvidenceStatus.MULTIPLE_SOURCES_CONFIRMED):
+            continue
+        # Only a source that actually supports the claim may be cited. Citing
+        # results[0] regardless of support is how an anime fan site ended up
+        # printed as the source for a product price.
+        supporting = [r for r in research_by_claim.get(c.id, []) if r.supports_claim]
+        supporting.sort(key=lambda r: 0 if r.source_type in ("official", "government") else 1)
+        if not supporting:
+            continue
+        return f"{c.claim_text}（出典: {supporting[0].source_domain}）"
     if seg.speaker and seg.shot_type == "interview":
         return seg.speaker
     return ""

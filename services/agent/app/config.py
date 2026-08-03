@@ -16,14 +16,20 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or "
 
 
 def _parallel_key() -> str:
+    """PARALLEL_API_KEY, or a key file pointed at by PARALLEL_API_KEY_FILE.
+
+    On Cloud Run the key comes from Secret Manager as an env var; the file
+    option exists so local development never puts a key in shell history.
+    """
     if os.getenv("PARALLEL_API_KEY"):
         return os.environ["PARALLEL_API_KEY"]
-    # Local dev convention: key file under ~/.claude/secrets (never committed).
-    key_file = Path.home() / ".claude" / "secrets" / "parallel_api_key.txt"
-    try:
-        return key_file.read_text(encoding="utf-8").strip()
-    except OSError:
-        return ""
+    key_file = os.getenv("PARALLEL_API_KEY_FILE", "")
+    if key_file:
+        try:
+            return Path(key_file).expanduser().read_text(encoding="utf-8").strip()
+        except OSError:
+            return ""
+    return ""
 
 
 PARALLEL_API_KEY = _parallel_key()

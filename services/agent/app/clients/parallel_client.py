@@ -78,35 +78,37 @@ class ParallelClient:
         query = claim.safe_search_query or ""
         allowed, reason = egress_check(claim, segment, query)
 
-        log = EgressLog(
-            project_id=project_id, claim_id=claim.id, segment_id=segment.id,
-            classification=segment.confidentiality.value, query_sent=query if allowed else "",
-            provider=self.provider, status="pending", reason=reason,
-        )
+        def record(status: str, reason: str, phase: str = "attempt",
+                   attempt_id: str = "", result_count: int = 0) -> EgressLog:
+            """Append-only: every write is a new row, so the attempt record
+            survives alongside its outcome."""
+            entry = EgressLog(
+                project_id=project_id, claim_id=claim.id, segment_id=segment.id,
+                classification=segment.confidentiality.value,
+                query_sent=query if status in ("sent", "completed") else "",
+                provider=self.provider, status=status, reason=reason,
+                phase=phase, attempt_id=attempt_id, result_count=result_count,
+            )
+            store.put(project_id, "egress_log", entry)
+            return entry
+
         if not allowed:
-            log.status = "blocked"
-            store.put(project_id, "egress_log", log)
+            record("blocked", reason)
             raise EgressBlocked(reason)
         if self.calls_this_run >= config.PARALLEL_MAX_SEARCHES_PER_RUN:
-            log.status = "blocked"
-            log.reason = "per-run search budget exhausted"
-            store.put(project_id, "egress_log", log)
-            raise EgressBlocked(log.reason)
+            record("blocked", "per-run search budget exhausted")
+            raise EgressBlocked("per-run search budget exhausted")
 
-        log.status = "sent"
-        store.put(project_id, "egress_log", log)
+        attempt = record("sent", reason)
         self.calls_this_run += 1
 
         try:
             response = self._mock_search(query) if self.mock else self._real_search(query, after_date)
-            log.status = "completed"
-            log.result_count = len(response.pages)
         except Exception as exc:
-            log.status = "failed"
-            log.reason = str(exc)[:200]
-            store.put(project_id, "egress_log", log)
+            record("failed", str(exc)[:200], phase="outcome", attempt_id=attempt.id)
             raise
-        store.put(project_id, "egress_log", log)
+        record("completed", "ok", phase="outcome", attempt_id=attempt.id,
+               result_count=len(response.pages))
 
         results = []
         for page in response.pages:

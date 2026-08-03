@@ -25,6 +25,7 @@ _HUMAN_APPROVAL_TYPES = {"popularity", "superlative"}
 
 class _LlmClaim(BaseModel):
     claim_text: str
+    claim_subject: str
     claim_type: str
     safe_search_query: str
 
@@ -37,11 +38,26 @@ _LLM_PROMPT = """You extract verifiable factual claims from TV interview transcr
 From the transcript below, list claims that can be checked against public web
 sources (counts, prices, dates, stats, rankings, superlatives like "first/biggest",
 popularity claims like "popular/trending").
+
+CRITICAL: every claim must be SELF-CONTAINED. The claim_text must name what the
+claim is about, even when the speaker only said "the price is 1,980 yen".
+Write "<subject>の価格は1,980円" — never a bare "価格は1,980円". A claim without
+its subject cannot be verified, because any page containing that number would
+appear to match.
+claim_subject: the entity the claim is about (product or company name), or ""
+if the transcript genuinely does not identify one.
+
 For each claim build a SAFE search query: short keywords only
 (entity + metric + "公式" + year). NEVER quote the transcript sentence itself.
 Write claim_text in the same language as the transcript.
 claim_type: one of store_count/price/release_date/stat/ranking/superlative/popularity/other.
-Transcript (speaker {speaker}): {transcript}
+
+CONTEXT is background only — use it to work out what the speaker is referring
+to. Extract claims ONLY from TRANSCRIPT. Do not extract claims that appear in
+CONTEXT but not in TRANSCRIPT.
+
+CONTEXT (other utterances in this shoot): {context}
+TRANSCRIPT (speaker {speaker}) — extract from this only: {transcript}
 Return JSON."""
 
 # Deterministic extraction for mock mode / tests.
@@ -56,6 +72,9 @@ _MOCK_RULES = [
 
 def extract_claims(project_id: str, segments: list[Segment]) -> list[Claim]:
     claims: list[Claim] = []
+    # Speakers drop the subject after introducing it ("...and the price is
+    # 1,980 yen"). Carry earlier utterances so the extractor can restore it.
+    context = " / ".join(s.transcript for s in segments if s.transcript.strip())[:1200]
     for seg in segments:
         if not seg.transcript.strip():
             continue
@@ -68,14 +87,20 @@ def extract_claims(project_id: str, segments: list[Segment]) -> list[Claim]:
         else:
             try:
                 llm = gemini.structured(
-                    _LLM_PROMPT.format(speaker=seg.speaker or "unknown", transcript=seg.transcript),
+                    _LLM_PROMPT.format(speaker=seg.speaker or "unknown",
+                                       transcript=seg.transcript, context=context),
                     _LlmClaims,
                 )
-                extracted = [(c.claim_text, c.claim_type, c.safe_search_query) for c in llm.claims]
+                extracted = [
+                    (_with_subject(c.claim_text, c.claim_subject), c.claim_type, c.safe_search_query)
+                    for c in llm.claims
+                ]
             except Exception:
                 extracted = _mock_extract(seg.transcript)  # degraded, still safe
 
         for claim_text, claim_type, safe_query in extracted:
+            if _seen_before(claim_text, claim_type, claims):
+                continue  # same fact restated; verify it once
             needs_human = claim_type in _HUMAN_APPROVAL_TYPES
             claims.append(Claim(
                 segment_id=seg.id,
@@ -88,6 +113,31 @@ def extract_claims(project_id: str, segments: list[Segment]) -> list[Claim]:
             ))
     store.put_many(project_id, "claims", claims)
     return claims
+
+
+def _key(text: str) -> str:
+    return re.sub(r"[\s、。,.:：]|です|ます|である|されている|いる", "", text)
+
+
+def _seen_before(claim_text: str, claim_type: str, claims: list[Claim]) -> bool:
+    """Speakers restate the same number across takes; each restatement is the
+    same fact and should cost one verification, not several."""
+    key = _key(claim_text)
+    for existing in claims:
+        if existing.claim_type != claim_type:
+            continue
+        other = _key(existing.claim_text)
+        if key == other or key in other or other in key:
+            return True
+    return False
+
+
+def _with_subject(claim_text: str, subject: str) -> str:
+    """Belt and braces: if the model still returned a subjectless claim, prefix
+    the subject it identified. A claim with no subject verifies against anything."""
+    if not subject or subject in claim_text:
+        return claim_text
+    return f"{subject}: {claim_text}"
 
 
 def _mock_extract(transcript: str) -> list[tuple[str, str, str]]:

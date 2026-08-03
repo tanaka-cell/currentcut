@@ -57,3 +57,55 @@ the Morning Dashboard will render.
 `GEMINI_VIDEO_MODEL` / `GEMINI_REASONING_MODEL` / `GEMINI_FAST_MODEL` with
 defaults set in `config.py` after checking availability (research pending —
 see STATUS). No model IDs hardcoded elsewhere.
+
+## 2026-08-03 — D-011: Main axis stays "wake up to a first cut"; the differentiator is that the cut is sourced and confidentiality-cleared
+A 4-AI review unanimously proposed reframing the product around "facts change
+before air → propagate to script/caption/cut". The director on this team
+rejected it from workflow experience: by the eve of air they are already in the
+edit house with a professional editor, so an AI has no seat there — and the
+rough cut CurrentCut generates has been discarded by then anyway.
+
+That objection is decisive, and the reviewers' proposal would have cost us the
+"Quality of the Idea — do they understand a real problem?" criterion it was
+meant to win. The AI window is between the shoot and the edit house, which is
+exactly where the original positioning sits.
+
+The reviewers were right about one thing: transcript → rough cut already ships
+(Trint Story Builder, Descript Underlord, Avid PhraseFind/ScriptSync AI,
+Premiere text-based editing, DaVinci Resolve, Axle AI). Our answer is not a
+different workflow position but a different output:
+**a first cut that arrives with sources attached and off-record material
+already removed.** Across the broadcast tools surveyed, none documents
+fact-checking or off-record handling. Parallel stays central — it is what puts
+the sources on the numbers.
+
+## 2026-08-03 — D-012: Freshness demoted to a volatility flag, and moved before the edit house
+Not "detect that a fact changed and re-render", but "before you lock the
+structure, here are the claims whose sources state an expiry or a scheduled
+change". Raised only when a source actually says so (`dated_qualifier`); a
+generic "prices move" is not worth a director's attention. The director decides
+whether it reaches the script — the tool only surfaces candidates.
+
+## 2026-08-03 — D-013: Support is entity + attribute + value, never numeric overlap
+The old heuristic confirmed a bento-box price from an anime fan site because
+both contained "1980", and the rough cut burned that citation into the picture.
+Two distinct defects, both fixed:
+1. `_judge_support` counted any shared number as support → replaced by the
+   Gemini evidence comparator (`agents/evidence.py`), which requires entity,
+   attribute and value to all match and fails closed on error.
+2. `_caption_for` cited `results[0]` without checking `supports_claim` → now
+   only a supporting source may be cited, primary sources first.
+Claims are also required to be self-contained: "価格は1,980円" verifies against
+anything, so the extractor must produce "<subject>の価格は1,980円".
+
+## 2026-08-03 — D-014: Egress Log is append-only
+The attempt record and the outcome record were being written under the same id,
+so the store replaced the first with the second and the "what we were about to
+send" row never survived. Each write is now its own row, linked by
+`attempt_id`. An audit trail that overwrites itself is not an audit trail.
+
+## 2026-08-03 — D-015: EDITORIAL_ONLY may not leave the building
+Briefly relaxed so that verification would fire at all; the real cause was the
+LLM over-labeling ordinary on-camera statements, since fixed in the prompt.
+External search is PUBLIC-only again. Fail-closed is the product's claim, and
+loosening it to make a demo work is the wrong trade.

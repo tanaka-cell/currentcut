@@ -63,7 +63,10 @@ def test_public_claim_searched_with_sources(overnight_run):
     assert store_claims, "80店舗 must be extracted as a claim"
     claim = store_claims[0]
     assert claim.safe_search_query, "safe query must be generated"
-    assert "80店舗" not in claim.safe_search_query or True  # keywords only
+    # The safe query must be keywords, not the spoken sentence.
+    assert "あります" not in claim.safe_search_query
+    assert "現在、全国に" not in claim.safe_search_query
+    assert len(claim.safe_search_query) <= 60
     assert claim.verification_status.value.endswith("CONFIRMED")
 
     egress = store.list(project_id, "egress_log", EgressLog)
@@ -77,6 +80,46 @@ def test_public_claim_searched_with_sources(overnight_run):
     linked = [l for l in store.list(project_id, "script_lines", ScriptLine)
               if claim.id in l.claim_ids]
     assert linked, "script line must link to the claim"
+
+
+def test_egress_log_is_append_only(overnight_run):
+    """The attempt record must survive its own outcome record."""
+    from app.models.schemas import EgressLog
+    from app.storage import store
+
+    project_id, _ = overnight_run
+    egress = store.list(project_id, "egress_log", EgressLog)
+    sent = [e for e in egress if e.status == "sent"]
+    outcomes = [e for e in egress if e.phase == "outcome"]
+    assert sent, "the pre-send record must not be overwritten by the outcome"
+    assert outcomes, "an outcome record must be written"
+    for outcome in outcomes:
+        assert outcome.attempt_id, "outcome must link back to its attempt"
+        assert any(e.id == outcome.attempt_id for e in egress)
+    assert len({e.id for e in egress}) == len(egress), "ids must be unique"
+
+
+def test_captions_only_cite_supporting_sources(overnight_run):
+    """A source judged not to support the claim must never be printed as 出典."""
+    from app.models.schemas import Claim, ResearchResult, ScriptLine
+    from app.storage import store
+
+    project_id, _ = overnight_run
+    results = store.list(project_id, "research_results", ResearchResult)
+    claims = {c.id: c for c in store.list(project_id, "claims", Claim)}
+    non_supporting_domains = {r.source_domain for r in results if not r.supports_claim}
+    supporting_domains = {r.source_domain for r in results if r.supports_claim}
+    only_bad = non_supporting_domains - supporting_domains
+
+    for line in store.list(project_id, "script_lines", ScriptLine):
+        if "出典" not in line.caption_text:
+            continue
+        for domain in only_bad:
+            assert domain not in line.caption_text, (
+                f"cited {domain}, which was judged not to support the claim")
+        # and the cited claim must really be confirmed
+        cited = [claims[cid] for cid in line.claim_ids if cid in claims]
+        assert any(c.verification_status.value.endswith("CONFIRMED") for c in cited)
 
 
 # ---- Test 3: every factual line is grounded ---------------------------------

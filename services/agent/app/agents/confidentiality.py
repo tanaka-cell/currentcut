@@ -106,9 +106,11 @@ def classify_segments(project_id: str, segments: list[Segment]) -> list[Segment]
         seg.confidentiality = final_label
         seg.confidentiality_reason = final_reason
         seg.allow_script_use = final_label in (Confidentiality.PUBLIC, Confidentiality.EDITORIAL_ONLY)
-        # EDITORIAL_ONLY: verbatim text never leaves, but keyword-only safe
-        # queries may (the egress gate enforces the no-raw-transcript rule).
-        seg.allow_external_search = final_label in (Confidentiality.PUBLIC, Confidentiality.EDITORIAL_ONLY)
+        # Only PUBLIC leaves the building. EDITORIAL_ONLY was briefly allowed to
+        # make verification fire, but the real cause was over-labeling by the
+        # LLM (since fixed in the prompt). Fail closed is the product's claim;
+        # loosening it to make a demo work is the wrong trade.
+        seg.allow_external_search = final_label == Confidentiality.PUBLIC
         assert not (seg.confidentiality in RESTRICTED_LABELS and seg.allow_external_search)
 
     store.put_many(project_id, "segments", segments)

@@ -97,6 +97,11 @@ class Claim(BaseModel):
     requires_human_approval: bool = False
     verification_status: EvidenceStatus = EvidenceStatus.UNVERIFIED
     last_checked_at: str = ""
+    # Volatility flag: surfaced to the director before the structure is locked.
+    # `volatility_note` is only set when a source states an actual expiry or
+    # scheduled change — a generic "prices move" is not worth the director's time.
+    volatility_note: str = ""
+    recheck_before_lock: bool = False
 
 
 class ResearchResult(BaseModel):
@@ -110,6 +115,9 @@ class ResearchResult(BaseModel):
     excerpt: str = ""
     source_type: str = "web"  # official | government | news | web
     supports_claim: Optional[bool] = None
+    source_value: str = ""
+    dated_qualifier: str = ""  # expiry / validity / scheduled change stated by the source
+    judgment_reason: str = ""
     confidence: float = 0
     retrieved_at: str = Field(default_factory=now_iso)
 
@@ -174,3 +182,7 @@ class EgressLog(BaseModel):
     status: str = ""  # blocked | sent | completed | failed
     reason: str = ""
     result_count: int = 0
+    # Append-only audit trail: the attempt record and the outcome record are
+    # separate rows, linked by attempt_id. Never overwrite an existing row.
+    phase: str = "attempt"  # attempt | outcome
+    attempt_id: str = ""

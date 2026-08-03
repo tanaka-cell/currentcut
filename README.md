@@ -5,11 +5,30 @@
 
 CurrentCut is an AI night-shift agent for directors of 5–15 minute factual TV
 features. After the shoot, the director uploads raw footage, presses **Start
-Overnight Run**, and rests. Overnight, a Google ADK multi-agent workflow
-understands every clip, protects confidential moments, verifies claims against
-the live web, writes a source-linked script, and renders a rough cut — so the
-next morning the director makes editorial decisions instead of scrubbing
-through hours of footage.
+Overnight Run**, and rests. Overnight, a Google ADK workflow understands every
+clip, protects confidential moments, verifies claims against the live web,
+writes a source-linked script, and renders a rough cut — so the next morning
+the director makes editorial decisions instead of scrubbing through hours of
+footage.
+
+**What makes the cut different from an automatic rough cut.** Transcript-driven
+editing already ships in several products. CurrentCut's first cut is different
+in what comes attached to it:
+
+- **Every factual line carries its source.** A number reaches the script only
+  when a retrieved page matches it on entity, attribute and value. A page that
+  merely contains the same digits is not evidence.
+- **Off-record material is already gone.** Not greyed out for the director to
+  notice — excluded from the search queries, the script and the cut, with the
+  block recorded.
+- **Claims whose sources state an expiry or a scheduled change are flagged**
+  before the structure is locked ("this is a campaign price, valid until Aug 31";
+  "two more stores open this month"). The tool surfaces the candidate; the
+  director decides whether it belongs in the script.
+
+The window CurrentCut works in is between the shoot and the edit house — the
+nights the director spends alone with the footage. Once the edit house starts,
+a human editor is in the room and the tool steps back.
 
 Built for Google Cloud **"Agentic Cinema: The Blockbuster Hackathon"** —
 Parallel track.
@@ -40,8 +59,8 @@ explicitly out of scope — CurrentCut never makes the air/no-air decision.
 | Temp narration (planned) | Google Cloud Text-to-Speech | Phase 5 |
 | Cutting/rendering (non-AI) | FFmpeg | `services/agent/app/agents/rough_cut.py` |
 
-No Anthropic / OpenAI / AWS / non-Google AI APIs at runtime. (Claude Code was
-used as a development tool only.)
+No non-Google AI APIs at runtime. The only AI services this application calls
+are Gemini, Google ADK, and the Parallel Search API.
 
 ## Confidentiality Firewall
 
@@ -67,9 +86,18 @@ Footage utterance → timecoded segment → verifiable claim → web evidence �
 script line → caption → cut. Every `ScriptLine` stores `segment_id`,
 `claim_ids`, source links and an evidence status
 (`FOOTAGE_CONFIRMED / PRIMARY_SOURCE_CONFIRMED / MULTIPLE_SOURCES_CONFIRMED /
-EDITORIAL_LANGUAGE / UNVERIFIED / CONFLICTING`), so when a fact changes before
-air the affected lines, captions and cuts are identifiable (Freshness Agent,
-Phase 6).
+EDITORIAL_LANGUAGE / UNVERIFIED / CONFLICTING`). The director can move from any
+line in the script to the footage timecode it came from and to the page that
+backs it, and can see which claims are the kind that go stale.
+
+## How support is decided
+
+A retrieved page supports a claim only when the entity, the attribute and the
+value all match (`app/agents/evidence.py`). Claims are required to be
+self-contained for this reason: "the price is ¥1,980" would verify against any
+page containing that number, so the extractor restores the subject —
+"<product>'s price is ¥1,980". Verification failures never count as support,
+and a single non-primary source is not enough to call a fact confirmed.
 
 ## Repo layout
 

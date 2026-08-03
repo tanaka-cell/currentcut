@@ -1,9 +1,15 @@
-"""Research Agent — verifies claims through the Parallel egress gate."""
+"""Research Agent — verifies claims through the Parallel egress gate.
+
+Support is decided by the evidence comparator (entity + attribute + value),
+never by numeric overlap. A source that merely contains the same digits is
+not evidence.
+"""
 from __future__ import annotations
 
 from ..clients.parallel_client import EgressBlocked, parallel
 from ..models.schemas import Claim, EvidenceStatus, ResearchResult, Segment, now_iso
 from ..storage import store
+from . import evidence
 
 
 def research_claims(
@@ -29,20 +35,40 @@ def research_claims(
             continue
 
         for r in results:
-            r.supports_claim = _judge_support(claim, r)
-            r.confidence = 0.8 if r.supports_claim else 0.3
+            judgment = evidence.judge(claim, r)
+            r.supports_claim = evidence.supports(judgment)
+            r.source_value = judgment.source_value
+            r.dated_qualifier = judgment.dated_qualifier
+            r.judgment_reason = judgment.reason
+            if judgment.source_is_primary and r.source_type == "web":
+                r.source_type = "official"
+            r.confidence = 0.85 if r.supports_claim else 0.1
 
         supporting = [r for r in results if r.supports_claim]
+        primary = [r for r in supporting if r.source_type in ("official", "government")]
+
         if len(supporting) >= 2:
             claim.verification_status = EvidenceStatus.MULTIPLE_SOURCES_CONFIRMED
-        elif len(supporting) == 1:
-            claim.verification_status = (
-                EvidenceStatus.PRIMARY_SOURCE_CONFIRMED
-                if supporting[0].source_type in ("official", "government")
-                else EvidenceStatus.UNVERIFIED
-            )
-        elif results:
+        elif primary:
+            claim.verification_status = EvidenceStatus.PRIMARY_SOURCE_CONFIRMED
+        elif supporting:
+            # A single non-primary source is not enough to call a fact confirmed.
+            claim.verification_status = EvidenceStatus.UNVERIFIED
+        elif _conflicting(claim, results):
             claim.verification_status = EvidenceStatus.CONFLICTING
+        else:
+            claim.verification_status = EvidenceStatus.UNVERIFIED
+
+        # Volatility flag (director-facing): only raise it when a source states
+        # an actual expiry or scheduled change, not merely because prices move.
+        qualifiers = [r.dated_qualifier for r in results if r.dated_qualifier]
+        if qualifiers:
+            claim.volatility_note = qualifiers[0]
+            claim.recheck_before_lock = True
+        elif claim.volatility == "high" and claim.verification_status in (
+                EvidenceStatus.PRIMARY_SOURCE_CONFIRMED, EvidenceStatus.MULTIPLE_SOURCES_CONFIRMED):
+            claim.recheck_before_lock = True
+
         claim.last_checked_at = now_iso()
         store.put(project_id, "claims", claim)
         all_results.extend(results)
@@ -51,16 +77,8 @@ def research_claims(
     return all_results
 
 
-def _judge_support(claim: Claim, result: ResearchResult) -> bool:
-    """Cheap deterministic overlap check; Phase 2 upgrades this to a Gemini
-    comparison of claim value vs excerpt value."""
-    import re
-
-    def numbers(text: str) -> set[str]:
-        return {n.replace(",", "") for n in re.findall(r"[\d,]+", text) if n.strip(",")}
-
-    claim_numbers = numbers(claim.claim_text)
-    excerpt_numbers = numbers(result.excerpt)
-    if claim_numbers:
-        return bool(claim_numbers & excerpt_numbers)
-    return bool(result.excerpt)
+def _conflicting(claim: Claim, results: list[ResearchResult]) -> bool:
+    """Sources that discuss the same thing but state a different value."""
+    values = {r.source_value for r in results
+              if r.source_value and not r.supports_claim}
+    return len(values) > 0
