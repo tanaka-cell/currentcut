@@ -100,14 +100,23 @@
       returns. Raw transcripts are never sent — only keyword queries built from public claims.</p>
     <div class="card scroll"><table id="egress"></table></div>
 
-    <h2>Telop order sheet</h2>
-    <p class="lede">A finished feature is usually captioned at the broadcaster on the
-      station's own telop system, so what the director hands over is the text. Figures that
-      were confirmed carry their attribution; figures that were not are flagged before
-      anyone sets them. <a id="csv" href="#" download>Download as CSV</a> — or upload your
-      programme's own telop sheet (.xlsx) and get it back filled in, formatting intact.</p>
-    <div class="card"><input type="file" id="tpl" accept=".xlsx,.xlsm">
-      <span id="tplmsg" class="src"></span></div>
+    <h2>Telop manuscript</h2>
+    <p class="lede">The usual route is that the director writes a telop manuscript in
+      Excel, sends it to the edit house, and an assistant there pours it into the
+      programme's own template. So that spreadsheet is what CurrentCut produces —
+      with one column the director would otherwise fill in by hand: whether each figure
+      was checked, and against what.</p>
+    <div class="card">
+      <a id="xlsx" href="#" download><b>テロップ原稿.xlsx</b></a> —
+      <a id="csv" href="#" download class="src">or as CSV</a>
+      <div class="src" style="margin-top:.6rem">
+        Optional: upload your programme's own form (.xlsx, or a scan of the paper pad as
+        JPEG/PNG/PDF) and CurrentCut fills that too, formatting intact.
+        <input type="file" id="tpl" accept=".xlsx,.xlsm,.jpg,.jpeg,.png,.pdf"
+               style="display:block;margin-top:.5rem">
+        <span id="tplmsg"></span>
+      </div>
+    </div>
     <div class="card scroll"><table id="telops"></table></div>
 
     <h2>The cut</h2>
@@ -244,6 +253,7 @@ async function loadResults() {
               place:'場所スーパー', title:'タイトル'};
   const telops = await fetch(`/projects/${projectId}/telops`).then(r=>r.json());
   $('#csv').href = `/projects/${projectId}/telops.csv`;
+  $('#xlsx').href = `/projects/${projectId}/telop-manuscript.xlsx`;
   $('#telops').innerHTML = `<thead><tr>
       <th>No</th><th>IN / OUT</th><th>種別</th><th>表示文字</th><th>出典表記</th><th>備考</th>
     </tr></thead><tbody>` +
@@ -275,11 +285,28 @@ $('#tpl').onchange = async e => {
   body.append('file', file);
   const r = await fetch(`/projects/${projectId}/telop-template`, {method:'POST', body});
   const d = await r.json();
-  if (!r.ok) { $('#tplmsg').textContent = d.detail || 'Could not read that sheet'; return; }
-  const cols = Object.entries(d.recognised_columns || {})
-    .map(([k,v]) => `${k}→${v}`).join(', ');
-  $('#tplmsg').innerHTML = `Recognised ${cols || 'nothing'} (headers on row ${d.header_row}). ` +
-    `<a href="/projects/${projectId}/telop-sheet.xlsx" download>Download the filled sheet</a>`;
+  if (!r.ok) { $('#tplmsg').textContent = d.detail || 'Could not read that form'; return; }
+
+  if (d.kind === 'spreadsheet') {
+    const fields = Object.entries(d.recognised_fields || {}).map(([k,v]) => `${k}→${v}`).join(', ');
+    $('#tplmsg').innerHTML =
+      `Read as a spreadsheet: ${esc(fields) || 'nothing recognised'}. ` +
+      `Entry starts on row ${d.first_data_row}, ${d.rows_per_entry} row(s) each` +
+      (d.entries_per_sheet ? `, ${d.entries_per_sheet} per page` : '') + '. ' +
+      `<a href="/projects/${projectId}/telop-sheet.xlsx" download>Download the filled sheet</a>`;
+  } else {
+    $('#tplmsg').innerHTML =
+      `Read as a paper form. Characters go here: [${(d.text_area||[]).join(', ')}] ` +
+      `(${esc(d.note || '')}). <button id="renderForms" type="button">Print one sheet per telop</button>`;
+    $('#renderForms').onclick = async () => {
+      $('#renderForms').textContent = 'Rendering…';
+      const rr = await fetch(`/projects/${projectId}/telop-form/render`, {method:'POST'});
+      const dd = await rr.json();
+      $('#tplmsg').innerHTML = rr.ok
+        ? `${dd.sheets} sheets. <a href="/projects/${projectId}/telop-sheets.pdf" download>Download the PDF</a>`
+        : esc(dd.detail || 'Could not render');
+    };
+  }
 };
 </script>
 </body>

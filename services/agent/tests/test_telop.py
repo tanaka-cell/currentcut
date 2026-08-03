@@ -143,6 +143,56 @@ def test_figures_are_never_broken_across_lines():
             assert not line[0].isdigit() or "万" not in "".join(lines[:1]), lines
 
 
+def test_manuscript_excel_needs_no_template(overnight_run, tmp_path):
+    """The everyday deliverable: the director's テロップ原稿, emailed to the edit
+    house, which pours it into the programme's own form. No template required."""
+    from openpyxl import load_workbook
+
+    from app.agents import telop_sheet
+    from app.models.schemas import TelopEntry
+    from app.storage import store
+
+    project_id, _ = overnight_run
+    entries = store.list(project_id, "telops", TelopEntry)
+    out = telop_sheet.write_manuscript(entries, tmp_path / "原稿.xlsx",
+                                       title="トレンド特集", air_date="金曜")
+    ws = load_workbook(out)["テロップ原稿"]
+
+    headers = [ws.cell(row=4, column=c).value for c in range(1, 9)]
+    assert headers[:5] == ["No", "IN点", "OUT点", "種別", "表示文字"]
+    assert "裏付け" in headers, "the edit house must see which figures were checked"
+    assert "トレンド特集" in str(ws["A2"].value)
+
+    first_text = ws.cell(row=5, column=5).value
+    assert first_text and str(first_text).strip()
+    assert ws.freeze_panes is not None, "the header must stay visible when scrolling"
+
+    # Every drafted telop reaches the manuscript.
+    rows = sum(1 for r in range(5, 5 + len(entries)) if ws.cell(row=r, column=1).value)
+    assert rows == len(entries)
+
+
+def test_manuscript_marks_figures_that_need_a_decision(overnight_run, tmp_path):
+    from openpyxl import load_workbook
+
+    from app.agents import telop_sheet
+    from app.models.schemas import EvidenceStatus, TelopEntry
+    from app.storage import store
+
+    project_id, _ = overnight_run
+    entries = store.list(project_id, "telops", TelopEntry)
+    out = telop_sheet.write_manuscript(entries, tmp_path / "原稿2.xlsx")
+    ws = load_workbook(out)["テロップ原稿"]
+
+    for offset, entry in enumerate(entries):
+        label = ws.cell(row=5 + offset, column=7).value
+        assert label, "every row states its evidence position"
+        if entry.evidence_status == EvidenceStatus.CONFLICTING:
+            assert "⚠" in str(label)
+        if entry.evidence_status == EvidenceStatus.UNVERIFIED:
+            assert "裏付けなし" in str(label)
+
+
 def test_csv_fallback_when_no_template(overnight_run, tmp_path):
     from app.agents import telop_sheet
     from app.models.schemas import TelopEntry

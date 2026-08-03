@@ -276,18 +276,105 @@ def _first_tc_ref(mapping: SheetMapping) -> tuple[str, int]:
     return (cell.column, mapping.first_data_row + cell.row_offset)
 
 
+_EVIDENCE_JA = {
+    "FOOTAGE_CONFIRMED": "素材どおり",
+    "PRIMARY_SOURCE_CONFIRMED": "一次情報で確認",
+    "MULTIPLE_SOURCES_CONFIRMED": "複数ソースで確認",
+    "EDITORIAL_LANGUAGE": "演出表現",
+    "UNVERIFIED": "裏付けなし",
+    "CONFLICTING": "⚠公開情報と相違",
+}
+
+_MANUSCRIPT_COLUMNS = [
+    ("No", 5), ("IN点", 12), ("OUT点", 12), ("種別", 15),
+    ("表示文字", 34), ("出典表記", 24), ("裏付け", 16), ("備考・確認事項", 40),
+]
+
+
+def write_manuscript(entries: list[TelopEntry], out_path: str | Path,
+                     title: str = "", air_date: str = "") -> Path:
+    """The director's own テロップ原稿 — the file that gets emailed to the edit house.
+
+    This is the everyday deliverable. The programme's template is filled in at
+    the edit house, so what the director sends is a plain, readable list: what
+    the telop says, when it comes up, and — the part CurrentCut adds — whether
+    the figure in it has been checked and against what.
+    """
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+    from openpyxl.utils import get_column_letter
+
+    out_path = Path(out_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "テロップ原稿"
+
+    ws["A1"] = "テロップ原稿"
+    ws["A1"].font = Font(size=14, bold=True)
+    ws["A2"] = f"番組・企画: {title}" if title else "番組・企画:"
+    ws["C2"] = f"OA: {air_date}" if air_date else "OA:"
+    ws["E2"] = "※「裏付け」欄が⚠または裏付けなしの行は、数字を出す前に確認してください"
+    ws["E2"].font = Font(size=9, color="8A5A12")
+
+    header_row = 4
+    thin = Side(style="thin", color="D0CCC2")
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+    head_fill = PatternFill("solid", fgColor="EFEBE2")
+
+    for index, (label, width) in enumerate(_MANUSCRIPT_COLUMNS, start=1):
+        cell = ws.cell(row=header_row, column=index, value=label)
+        cell.font = Font(bold=True, size=10)
+        cell.fill = head_fill
+        cell.border = border
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+        ws.column_dimensions[get_column_letter(index)].width = width
+
+    for offset, entry in enumerate(entries):
+        row = header_row + 1 + offset
+        values = [
+            entry.order,
+            _tc(entry.in_seconds),
+            _tc(entry.out_seconds),
+            _TYPE_JA.get(entry.telop_type, entry.telop_type),
+            "\n".join(entry.text_lines),
+            entry.source_note,
+            _EVIDENCE_JA.get(entry.evidence_status.value, entry.evidence_status.value),
+            entry.caution,
+        ]
+        for index, value in enumerate(values, start=1):
+            cell = ws.cell(row=row, column=index, value=value)
+            cell.border = border
+            cell.alignment = Alignment(
+                wrap_text=index in (5, 6, 8), vertical="center",
+                horizontal="center" if index in (1, 2, 3, 7) else "left")
+        # Draw the eye to the rows that still need a decision.
+        if entry.evidence_status.value == "CONFLICTING":
+            ws.cell(row=row, column=7).font = Font(bold=True, color="96311F")
+        elif entry.evidence_status.value == "UNVERIFIED":
+            ws.cell(row=row, column=7).font = Font(color="8A5A12")
+        ws.row_dimensions[row].height = 30 if len(entry.text_lines) > 1 else 20
+
+    ws.freeze_panes = ws.cell(row=header_row + 1, column=1)
+    ws.print_title_rows = f"{header_row}:{header_row}"
+    wb.save(out_path)
+    return out_path
+
+
 def write_csv(entries: list[TelopEntry], out_path: str | Path) -> Path:
-    """Fallback when no station template has been uploaded yet."""
+    """Plain text alternative for anyone who would rather not open a workbook."""
     import csv
 
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with open(out_path, "w", encoding="utf-8-sig", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow(["No", "IN", "OUT", "種別", "表示文字", "出典表記", "備考", "裏付け"])
+        writer.writerow([c[0] for c in _MANUSCRIPT_COLUMNS])
         for e in entries:
             writer.writerow([e.order, _tc(e.in_seconds), _tc(e.out_seconds),
                              _TYPE_JA.get(e.telop_type, e.telop_type),
-                             "\n".join(e.text_lines), e.source_note, e.caution,
-                             e.evidence_status.value])
+                             "\n".join(e.text_lines), e.source_note,
+                             _EVIDENCE_JA.get(e.evidence_status.value, e.evidence_status.value),
+                             e.caution])
     return out_path

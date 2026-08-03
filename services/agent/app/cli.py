@@ -20,7 +20,7 @@ def run_demo(use_adk: bool) -> None:
         sys.exit(1)
 
     project = Project(
-        title="AI搭載型スマート弁当箱が話題 (Quick Judge Demo)",
+        title="コンビニコーヒーに押される街の喫茶店 (Quick Judge Demo)",
         target_duration_seconds=90,
         air_date="2026-08-07",
         tone="energetic but not sensational",

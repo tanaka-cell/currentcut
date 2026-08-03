@@ -42,7 +42,7 @@ def start() -> str:
         raise RuntimeError(f"no demo footage found in {config.DEMO_ASSETS_DIR}")
 
     project = Project(
-        title="Quick Judge Demo",
+        title="コンビニコーヒーに押される街の喫茶店 (Quick Judge Demo)",
         target_duration_seconds=90,
         air_date="",
         tone="energetic but not sensational",

@@ -122,6 +122,26 @@ def get_telops(project_id: str):
     return [t.model_dump() for t in store.list(project_id, "telops", TelopEntry)]
 
 
+@app.get("/projects/{project_id}/telop-manuscript.xlsx")
+def download_manuscript(project_id: str):
+    """The director's テロップ原稿 — the file that goes to the edit house.
+
+    This is the everyday deliverable and needs no template: the edit house pours
+    it into the programme's own form. Available whether or not a template has
+    been uploaded.
+    """
+    project = _require_project(project_id)
+    entries = store.list(project_id, "telops", TelopEntry)
+    if not entries:
+        raise HTTPException(404, "no telops drafted yet")
+    path = telop_sheet.write_manuscript(
+        entries, config.OUTPUT_DIR / project_id / "telop_manuscript.xlsx",
+        title=project.title, air_date=project.air_date)
+    return FileResponse(
+        path, filename="テロップ原稿.xlsx",
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+
 @app.get("/projects/{project_id}/telops.csv")
 def get_telops_csv(project_id: str):
     _require_project(project_id)
@@ -129,42 +149,62 @@ def get_telops_csv(project_id: str):
     if not entries:
         raise HTTPException(404, "no telops drafted yet")
     path = telop_sheet.write_csv(entries, config.OUTPUT_DIR / project_id / "telops.csv")
-    return FileResponse(path, media_type="text/csv", filename="telop_sheet.csv")
+    return FileResponse(path, media_type="text/csv", filename="telop_manuscript.csv")
 
 
 @app.post("/projects/{project_id}/telop-template")
 async def upload_telop_template(project_id: str, file: UploadFile = File(...)):
-    """Upload the programme's own telop order sheet (.xlsx).
+    """Upload the programme's own telop form — spreadsheet, image or PDF.
 
-    Gemini reads the header row to work out what each column means; the drafted
-    telops are then written into a copy of that workbook, so the sheet keeps the
-    station's formatting and the telop operator gets the form they know.
+    Optional. Without one you still get the テロップ原稿 above, which is what most
+    programmes actually need. Upload one when you want CurrentCut to fill the
+    programme's own form as well.
+
+    A workbook is read for its structure and filled in place. An image or PDF is
+    treated as a paper order pad: Gemini locates the area where the characters
+    go, you confirm it once, and one sheet is printed per telop.
     """
     _require_project(project_id)
-    if not (file.filename or "").lower().endswith((".xlsx", ".xlsm")):
-        raise HTTPException(400, "upload the programme's telop sheet as .xlsx")
-
+    name = (file.filename or "").lower()
+    suffix = Path(name).suffix
     project_dir = config.OUTPUT_DIR / project_id
     project_dir.mkdir(parents=True, exist_ok=True)
-    template = project_dir / "telop_template.xlsx"
-    template.write_bytes(await file.read())
+    body = await file.read()
 
-    try:
-        mapping = telop_sheet.infer_mapping(template)
-    except Exception as exc:
-        raise HTTPException(422, str(exc))
-    (project_dir / "telop_mapping.json").write_text(
-        mapping.model_dump_json(indent=1), encoding="utf-8")
-    return {
-        "recognised_fields": {k: f"{v.column}+{v.row_offset}"
-                              for k, v in mapping.fields.items()},
-        "first_data_row": mapping.first_data_row,
-        "rows_per_entry": mapping.row_stride,
-        "entries_per_sheet": mapping.entries_per_sheet,
-        "sheets": mapping.sheet_names,
-        "max_chars_per_line": mapping.max_chars_per_line,
-        "notes": mapping.notes,
-    }
+    if suffix in (".xlsx", ".xlsm"):
+        template = project_dir / f"telop_template{suffix}"
+        template.write_bytes(body)
+        try:
+            mapping = telop_sheet.infer_mapping(template)
+        except Exception as exc:
+            raise HTTPException(422, str(exc))
+        (project_dir / "telop_mapping.json").write_text(
+            mapping.model_dump_json(indent=1), encoding="utf-8")
+        return {
+            "kind": "spreadsheet",
+            "recognised_fields": {k: f"{v.column}+{v.row_offset}"
+                                  for k, v in mapping.fields.items()},
+            "first_data_row": mapping.first_data_row,
+            "rows_per_entry": mapping.row_stride,
+            "entries_per_sheet": mapping.entries_per_sheet,
+            "sheets": mapping.sheet_names,
+            "max_chars_per_line": mapping.max_chars_per_line,
+            "notes": mapping.notes,
+        }
+
+    if suffix in (".jpg", ".jpeg", ".png", ".pdf"):
+        form = project_dir / f"telop_form{suffix}"
+        form.write_bytes(body)
+        try:
+            area = telop_form.infer_text_area(form)
+        except Exception as exc:
+            raise HTTPException(422, str(exc))
+        (project_dir / "telop_area.json").write_text(
+            area.model_dump_json(indent=1), encoding="utf-8")
+        return {"kind": "form", "text_area": area.box,
+                "reading_direction": area.reading_direction, "note": area.note}
+
+    raise HTTPException(400, "upload the form as .xlsx, .jpg, .png or .pdf")
 
 
 @app.get("/projects/{project_id}/telop-sheet.xlsx")
@@ -195,33 +235,6 @@ def download_filled_sheet(project_id: str):
 class TextAreaOverride(BaseModel):
     box: list[int]
     reading_direction: str = "horizontal"
-
-
-@app.post("/projects/{project_id}/telop-form")
-async def upload_telop_form(project_id: str, file: UploadFile = File(...)):
-    """Upload the programme's own telop order form (JPEG/PNG/PDF).
-
-    Fill in the fixed parts — programme name, font and size — on your own form
-    before uploading. CurrentCut works out only where the characters go, and
-    prints those. Confirm or adjust the proposed area once per programme.
-    """
-    _require_project(project_id)
-    name = (file.filename or "").lower()
-    if not name.endswith((".jpg", ".jpeg", ".png", ".pdf")):
-        raise HTTPException(400, "upload the form as JPEG, PNG or PDF")
-
-    project_dir = config.OUTPUT_DIR / project_id
-    project_dir.mkdir(parents=True, exist_ok=True)
-    form = project_dir / f"telop_form{Path(name).suffix}"
-    form.write_bytes(await file.read())
-
-    try:
-        area = telop_form.infer_text_area(form)
-    except Exception as exc:
-        raise HTTPException(422, str(exc))
-    (project_dir / "telop_area.json").write_text(area.model_dump_json(indent=1), encoding="utf-8")
-    return {"text_area": area.box, "reading_direction": area.reading_direction,
-            "note": area.note, "form": form.name}
 
 
 @app.put("/projects/{project_id}/telop-form/area")
