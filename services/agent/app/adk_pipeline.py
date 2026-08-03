@@ -1,0 +1,174 @@
+"""Google ADK orchestration layer.
+
+An LlmAgent ("overnight_director") is given the pipeline steps as tools and
+instructed to run the overnight workflow. This is the runtime entrypoint when
+Gemini credentials exist; without them we fall back to the deterministic
+`pipeline.run_overnight` and report provider="mock" honestly.
+
+google-adk >= 1.36: LlmAgent, Runner, InMemorySessionService.
+"""
+from __future__ import annotations
+
+import asyncio
+
+from . import config, pipeline
+from .models.schemas import AgentRun, now_iso
+from .storage import store
+
+_INSTRUCTION = """You are the overnight edit-suite supervisor for CurrentCut,
+an AI night-shift assistant for TV directors. A director has gone to rest.
+Run the overnight workflow for the given project_id by calling the tools IN
+THIS ORDER, each exactly once, passing the same project_id:
+1. analyze_footage
+2. classify_confidentiality
+3. extract_claims
+4. run_research
+5. write_script
+6. render_rough_cut
+Never skip confidentiality before research. After the final tool, reply with
+one short line: DONE <number of script lines> lines.
+"""
+
+
+def _tools(project_id_hint: str):
+    # ADK builds tool schemas from signatures + docstrings.
+    def analyze_footage(project_id: str) -> str:
+        """Analyze all registered footage assets with Gemini video understanding.
+
+        Args:
+            project_id: The CurrentCut project id.
+        Returns:
+            Summary of segments produced.
+        """
+        segments = pipeline.step_analyze(project_id)
+        return f"{len(segments)} segments logged"
+
+    def classify_confidentiality(project_id: str) -> str:
+        """Label every segment (PUBLIC/OFF_THE_RECORD/...) and set egress permissions.
+
+        Args:
+            project_id: The CurrentCut project id.
+        Returns:
+            Count of restricted segments.
+        """
+        segments = pipeline.step_confidentiality(project_id)
+        restricted = sum(1 for s in segments if not s.allow_external_search)
+        return f"{len(segments)} labeled, {restricted} restricted"
+
+    def extract_claims(project_id: str) -> str:
+        """Extract verifiable claims and safe external search queries.
+
+        Args:
+            project_id: The CurrentCut project id.
+        Returns:
+            Count of claims.
+        """
+        claims = pipeline.step_claims(project_id)
+        return f"{len(claims)} claims extracted"
+
+    def run_research(project_id: str) -> str:
+        """Verify claims against the public web via the Parallel Search API egress gate.
+
+        Args:
+            project_id: The CurrentCut project id.
+        Returns:
+            Count of research results.
+        """
+        results = pipeline.step_research(project_id)
+        return f"{len(results)} sources retrieved"
+
+    def write_script(project_id: str) -> str:
+        """Write the source-linked TV script from airable segments only.
+
+        Args:
+            project_id: The CurrentCut project id.
+        Returns:
+            Count of script lines.
+        """
+        lines = pipeline.step_script(project_id)
+        return f"{len(lines)} script lines"
+
+    def render_rough_cut(project_id: str) -> str:
+        """Render the rough-cut MP4 + SRT + EDL with FFmpeg.
+
+        Args:
+            project_id: The CurrentCut project id.
+        Returns:
+            Rough cut metadata.
+        """
+        cut = pipeline.step_rough_cut(project_id)
+        return f"mp4={cut['mp4']} duration={cut['duration_seconds']}s"
+
+    return [analyze_footage, classify_confidentiality, extract_claims,
+            run_research, write_script, render_rough_cut]
+
+
+async def _run_adk_async(project_id: str) -> str:
+    from google.adk.agents import LlmAgent
+    from google.adk.runners import Runner
+    from google.adk.sessions import InMemorySessionService
+    from google.genai import types
+
+    agent = LlmAgent(
+        name="overnight_director",
+        model=config.GEMINI_REASONING_MODEL,
+        instruction=_INSTRUCTION,
+        tools=_tools(project_id),
+    )
+    session_service = InMemorySessionService()
+    runner = Runner(app_name="currentcut", agent=agent, session_service=session_service)
+    await session_service.create_session(app_name="currentcut", user_id="director",
+                                         session_id=project_id)
+    message = types.Content(role="user", parts=[types.Part(
+        text=f"Run the overnight workflow for project_id={project_id}")])
+    final_text = ""
+    async for event in runner.run_async(user_id="director", session_id=project_id,
+                                        new_message=message):
+        if event.is_final_response() and event.content and event.content.parts:
+            final_text = "".join(p.text or "" for p in event.content.parts)
+    return final_text
+
+
+def run_overnight_adk(project_id: str, video_paths: list[str] | None = None) -> dict:
+    """ADK-driven overnight run, with honest fallback when no credentials."""
+    config.ensure_dirs()
+    if video_paths:
+        pipeline.step_ingest(project_id, video_paths)
+
+    if config.gemini_is_mock():
+        run = AgentRun(project_id=project_id, agent_name="adk_orchestrator",
+                       provider="mock", model_or_tool="deterministic-fallback",
+                       status="completed", completed_at=now_iso(),
+                       output_summary="No Gemini credentials: deterministic pipeline used")
+        store.put(project_id, "agent_runs", run)
+        return pipeline.run_overnight(project_id)
+
+    run = AgentRun(project_id=project_id, agent_name="adk_orchestrator",
+                   provider="adk", model_or_tool=config.GEMINI_REASONING_MODEL)
+    store.put(project_id, "agent_runs", run)
+    try:
+        final = asyncio.run(_run_adk_async(project_id))
+        run.status = "completed"
+        run.output_summary = final[:200]
+    except Exception as exc:
+        run.status = "failed"
+        run.error = str(exc)[:300]
+        store.put(project_id, "agent_runs", run)
+        raise
+    run.completed_at = now_iso()
+    store.put(project_id, "agent_runs", run)
+
+    cut = None
+    try:
+        import json as _json
+        meta = (config.OUTPUT_DIR / project_id / "rough_cut_meta.json")
+        if meta.exists():
+            cut = _json.loads(meta.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+    from .models.schemas import Project
+    project = store.get(project_id, "project", Project, project_id)
+    if project:
+        project.status = "first_cut_ready"
+        store.put(project_id, "project", project)
+    return pipeline.morning_report(project_id, cut)
