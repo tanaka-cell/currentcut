@@ -33,6 +33,12 @@ a human editor is in the room and the tool steps back.
 Built for Google Cloud **"Agentic Cinema: The Blockbuster Hackathon"** —
 Parallel track.
 
+**Live: https://currentcut-317408545495.asia-northeast1.run.app**
+One button runs a real overnight pass on the bundled demo footage — Gemini
+reads the clips, the Parallel Search API checks the claims that clear the
+confidentiality gate, FFmpeg cuts the preview. Nothing on that page is
+pre-generated; it takes a few minutes because the work actually happens.
+
 ## The problem
 
 Directors of factual features (trend segments, business news, weekly shows)
@@ -113,6 +119,19 @@ services/agent/           Python 3.11 + FastAPI + Google ADK
 scripts/make_demo_assets.py   fictional demo shoot generator
 demo-assets/generated/    synthetic footage (never real client material)
 ```
+
+## Deploy
+
+```bash
+gcloud run deploy currentcut --source . --region=asia-northeast1 \
+  --allow-unauthenticated --memory=2Gi --cpu=2 --timeout=900 \
+  --min-instances=1 --no-cpu-throttling \
+  --set-secrets=GEMINI_API_KEY=currentcut-gemini-key:latest,PARALLEL_API_KEY=currentcut-parallel-key:latest
+```
+
+Keys come from Secret Manager. `--no-cpu-throttling` and `--min-instances=1`
+matter: the overnight run continues on a worker thread after the HTTP request
+that started it has returned.
 
 ## Local quickstart
 

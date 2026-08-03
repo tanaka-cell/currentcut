@@ -37,7 +37,7 @@ See DECISIONS D-011/D-012.
 | ADK orchestration (gemini-2.5-pro) | ✅ | ✅ all 6 tools in order |
 | Parallel Search (`parallel-web` SDK) | ✅ | ✅ safe queries only; off-record query blocked and logged |
 | Google Cloud TTS narration | — | not started |
-| Cloud Run deploy | — | **not started — this is the top Stage-1 risk** |
+| Cloud Run deploy | ✅ | ✅ **https://currentcut-317408545495.asia-northeast1.run.app** — one-click demo runs the real pipeline in the container (Gemini → Parallel → FFmpeg), keys from Secret Manager |
 
 ### What the trust fixes changed (measured on the same demo footage)
 | | Before | After |
@@ -52,18 +52,25 @@ correct answer — a made-up product has no real evidence — and it is the reas
 the demo subject has to change (below).
 
 ## Next
-1. **Cloud Run deploy** (Stage-1 blocker: a hosted URL is required)
-2. **Swap the demo subject** from the fictional bento box to a real, publicly
-   verifiable one. Measured 2026-08-03: a query for the national average
-   gasoline price returns the Agency for Natural Resources and Energy statistics
-   page as a primary source, and `after_date` filtering surfaces genuinely newer
-   figures — so sourcing and volatility flags can both be shown for real.
-3. Volatility flags surfaced in the morning report (`dated_qualifier` is already
-   captured by the comparator)
-4. Browser upload + async job execution (currently local paths, synchronous —
-   also a security problem once hosted)
-5. Next.js console: Morning Dashboard / Source-to-Cut Review / Confidentiality
-6. English 3-minute demo video, submission package
+1. **Make the demo produce a confirmed claim reliably.** The tax-rate line
+   (8% takeaway / 10% eat-in) verifies against a tax-publisher source locally,
+   but extraction varies between runs and one production pass produced no
+   confirmed claim at all — so the "sourced first cut" promise was not visible
+   on screen. This is the single most important gap.
+2. **Speed.** A cold run takes ~4 minutes because Gemini watches four clips and
+   claim extraction is one call per segment. Batch the per-segment calls and
+   ship the analysis cache in the image (hash-keyed, so it is caching rather
+   than faking — the search, script and cut still run live).
+3. Volatility flags surfaced in the morning report UI
+4. Browser upload (footage paths are currently restricted to the bundled clips)
+5. English 3-minute demo video, submission package
+
+## Deployment notes
+- Project `clearslate-demo-2026`, region `asia-northeast1`, service `currentcut`
+- `--min-instances=1 --no-cpu-throttling` are required: the run continues on a
+  worker thread after the starting request returns
+- `/healthz` is registered but returns Google's own 404 through the edge; the
+  app itself is reachable on `/`, `/docs` and every `/api` and `/projects` route
 
 ## Honesty notes
 - The ADK layer is **one `LlmAgent` calling six tools in a fixed order**, not
