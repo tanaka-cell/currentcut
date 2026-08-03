@@ -134,6 +134,17 @@ def run_overnight(project_id: str, video_paths: list[str] | None = None) -> dict
     return morning_report(project_id, cut)
 
 
+def _saved_cut(project_id: str) -> dict:
+    meta = config.OUTPUT_DIR / project_id / "rough_cut_meta.json"
+    if not meta.exists():
+        return {}
+    try:
+        import json
+        return json.loads(meta.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
 def morning_report(project_id: str, cut: dict | None = None) -> dict:
     segments = store.list(project_id, "segments", Segment)
     claims = store.list(project_id, "claims", Claim)
@@ -150,5 +161,6 @@ def morning_report(project_id: str, cut: dict | None = None) -> dict:
         "confidential_moments_protected": len(protected),
         "decisions_need_review": len(needs_review)
         + len([c for c in claims if c.requires_human_approval]),
-        "rough_cut": cut or {},
+        # A later GET of the report must still describe the cut that was made.
+        "rough_cut": cut or _saved_cut(project_id),
     }

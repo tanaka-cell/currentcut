@@ -10,7 +10,17 @@ from dotenv import load_dotenv
 _SERVICE_ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(_SERVICE_ROOT / ".env")
 
-REPO_ROOT = _SERVICE_ROOT.parents[1]
+
+def _find_upwards(name: str, start: Path) -> Path | None:
+    """The container flattens the repo (app lives at /app), so the checkout
+    layout cannot be assumed. Walk up instead of indexing into parents."""
+    for candidate in [start, *start.parents]:
+        if (candidate / name).is_dir():
+            return candidate / name
+    return None
+
+
+REPO_ROOT = _SERVICE_ROOT.parents[1] if len(_SERVICE_ROOT.parents) > 1 else _SERVICE_ROOT
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or ""
 
@@ -56,7 +66,14 @@ def parallel_is_mock() -> bool:
 
 DATA_DIR = Path(os.getenv("CURRENTCUT_DATA_DIR", str(REPO_ROOT / "data"))).resolve()
 OUTPUT_DIR = Path(os.getenv("CURRENTCUT_OUTPUT_DIR", str(_SERVICE_ROOT / "output"))).resolve()
-DEMO_ASSETS_DIR = REPO_ROOT / "demo-assets" / "generated"
+
+_demo_env = os.getenv("CURRENTCUT_DEMO_DIR", "")
+_demo_found = _find_upwards("demo-assets", _SERVICE_ROOT)
+DEMO_ASSETS_DIR = (
+    Path(_demo_env).resolve() if _demo_env
+    else (_demo_found / "generated") if _demo_found
+    else REPO_ROOT / "demo-assets" / "generated"
+)
 
 PARALLEL_BASE_URL = os.getenv("PARALLEL_BASE_URL", "https://api.parallel.ai")
 PARALLEL_MAX_SEARCHES_PER_RUN = int(os.getenv("PARALLEL_MAX_SEARCHES_PER_RUN", "20"))

@@ -50,6 +50,11 @@ Answer:
   Do not treat "same product category" as the same entity: a different smart
   lunchbox, a different retailer's product at the same price, or an unrelated
   item that merely costs the same is NOT a match.
+  A single brand or chain is NOT the same entity as its whole industry, and the
+  reverse is also false. If the claim is about all convenience stores in the
+  country and the source reports one chain's store count, entity_match is false.
+  If the claim is about one company and the source gives an industry total,
+  entity_match is false.
 - attribute_match: does the source talk about the same attribute?
 - value_match: does the source state the SAME value as the claim?
 - source_value: the value the source states, verbatim ("" if none).
