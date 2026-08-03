@@ -9,3 +9,4 @@ parallel-web>=1.0
 pytest>=8.2
 openpyxl>=3.1
 python-multipart>=0.0.9
+pillow>=10.0

@@ -8,7 +8,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel
 
 from . import adk_pipeline, config, demo, pipeline
-from .agents import telop_sheet
+from .agents import telop_form, telop_sheet
 from .models.schemas import (
     AgentRun, Asset, Claim, EgressLog, Project, ResearchResult, ScriptLine, Segment,
     TelopEntry,
@@ -156,10 +156,13 @@ async def upload_telop_template(project_id: str, file: UploadFile = File(...)):
     (project_dir / "telop_mapping.json").write_text(
         mapping.model_dump_json(indent=1), encoding="utf-8")
     return {
-        "recognised_columns": mapping.columns,
-        "header_row": mapping.header_row,
+        "recognised_fields": {k: f"{v.column}+{v.row_offset}"
+                              for k, v in mapping.fields.items()},
         "first_data_row": mapping.first_data_row,
-        "sheet": mapping.sheet_name,
+        "rows_per_entry": mapping.row_stride,
+        "entries_per_sheet": mapping.entries_per_sheet,
+        "sheets": mapping.sheet_names,
+        "max_chars_per_line": mapping.max_chars_per_line,
         "notes": mapping.notes,
     }
 
@@ -177,12 +180,91 @@ def download_filled_sheet(project_id: str):
     if not entries:
         raise HTTPException(404, "no telops drafted yet")
 
-    mapping = telop_sheet.ColumnMapping.model_validate_json(
+    mapping = telop_sheet.SheetMapping.model_validate_json(
         mapping_file.read_text(encoding="utf-8"))
-    out = telop_sheet.fill_sheet(template, mapping, entries, project_dir / "telop_sheet.xlsx")
+    try:
+        out = telop_sheet.fill_sheet(template, mapping, entries,
+                                     project_dir / "telop_sheet.xlsx")
+    except OverflowError as exc:
+        raise HTTPException(422, str(exc))
     return FileResponse(
         out, filename="telop_sheet.xlsx",
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+
+class TextAreaOverride(BaseModel):
+    box: list[int]
+    reading_direction: str = "horizontal"
+
+
+@app.post("/projects/{project_id}/telop-form")
+async def upload_telop_form(project_id: str, file: UploadFile = File(...)):
+    """Upload the programme's own telop order form (JPEG/PNG/PDF).
+
+    Fill in the fixed parts — programme name, font and size — on your own form
+    before uploading. CurrentCut works out only where the characters go, and
+    prints those. Confirm or adjust the proposed area once per programme.
+    """
+    _require_project(project_id)
+    name = (file.filename or "").lower()
+    if not name.endswith((".jpg", ".jpeg", ".png", ".pdf")):
+        raise HTTPException(400, "upload the form as JPEG, PNG or PDF")
+
+    project_dir = config.OUTPUT_DIR / project_id
+    project_dir.mkdir(parents=True, exist_ok=True)
+    form = project_dir / f"telop_form{Path(name).suffix}"
+    form.write_bytes(await file.read())
+
+    try:
+        area = telop_form.infer_text_area(form)
+    except Exception as exc:
+        raise HTTPException(422, str(exc))
+    (project_dir / "telop_area.json").write_text(area.model_dump_json(indent=1), encoding="utf-8")
+    return {"text_area": area.box, "reading_direction": area.reading_direction,
+            "note": area.note, "form": form.name}
+
+
+@app.put("/projects/{project_id}/telop-form/area")
+def set_text_area(project_id: str, body: TextAreaOverride):
+    """Adjust where the characters are printed. Stored with the programme."""
+    _require_project(project_id)
+    if len(body.box) != 4 or not all(0 <= v <= 1000 for v in body.box):
+        raise HTTPException(400, "box must be [ymin, xmin, ymax, xmax] within 0-1000")
+    area = telop_form.TextArea(box=body.box, reading_direction=body.reading_direction,
+                               confirmed_by_director=True, note="set by the director")
+    (config.OUTPUT_DIR / project_id / "telop_area.json").write_text(
+        area.model_dump_json(indent=1), encoding="utf-8")
+    return {"text_area": area.box, "confirmed": True}
+
+
+@app.post("/projects/{project_id}/telop-form/render")
+def render_telop_forms(project_id: str):
+    """One filled sheet per telop: a PDF to print and JPEGs to send."""
+    _require_project(project_id)
+    project_dir = config.OUTPUT_DIR / project_id
+    forms = [p for p in project_dir.glob("telop_form.*")]
+    area_file = project_dir / "telop_area.json"
+    if not forms or not area_file.exists():
+        raise HTTPException(404, "upload the programme's telop form first")
+    entries = store.list(project_id, "telops", TelopEntry)
+    if not entries:
+        raise HTTPException(404, "no telops drafted yet")
+
+    area = telop_form.TextArea.model_validate_json(area_file.read_text(encoding="utf-8"))
+    try:
+        result = telop_form.render_sheets(forms[0], area, entries, project_dir / "telop_sheets")
+    except Exception as exc:
+        raise HTTPException(422, str(exc))
+    return result
+
+
+@app.get("/projects/{project_id}/telop-sheets.pdf")
+def download_telop_pdf(project_id: str):
+    _require_project(project_id)
+    pdf = config.OUTPUT_DIR / project_id / "telop_sheets" / "telop_sheets.pdf"
+    if not pdf.exists():
+        raise HTTPException(404, "render the sheets first")
+    return FileResponse(pdf, media_type="application/pdf", filename="telop_sheets.pdf")
 
 
 @app.get("/projects/{project_id}/segments")

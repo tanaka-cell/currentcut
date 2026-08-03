@@ -73,14 +73,14 @@ def test_fills_a_station_sheet_keeping_its_own_layout(overnight_run, tmp_path):
     ws = wb.active
     ws.title = "テロップ発注"
     ws["A1"] = "◯◯番組 テロップ発注表"
-    ws["A3"], ws["B3"], ws["C3"] = "No", "IN点", "アウト点"
+    ws["A3"], ws["B3"], ws["C3"] = "No", "開始タイム", "終了タイム"
     ws["D3"], ws["E3"], ws["F3"], ws["G3"] = "種別", "表示文字", "出典", "備考"
     ws.column_dimensions["E"].width = 42          # station's own formatting
     wb.save(template)
 
     mapping = telop_sheet.infer_mapping(template)
-    assert mapping.columns, "columns must be identified"
-    assert "text_all" in mapping.columns
+    assert mapping.fields, "fields must be identified"
+    assert "text" in mapping.fields
 
     out = telop_sheet.fill_sheet(template, mapping, entries, tmp_path / "filled.xlsx")
     assert out.exists()
@@ -90,9 +90,43 @@ def test_fills_a_station_sheet_keeping_its_own_layout(overnight_run, tmp_path):
     assert ws2["A1"].value == "◯◯番組 テロップ発注表", "the station's own header must survive"
     assert ws2.column_dimensions["E"].width == 42, "the station's formatting must survive"
 
-    text_col = mapping.columns["text_all"]
-    first = ws2[f"{text_col}{mapping.first_data_row}"].value
+    cell = mapping.fields["text"]
+    first = ws2[f"{cell.column}{mapping.first_data_row + cell.row_offset}"].value
     assert first and str(first).strip(), "entries must be written into the sheet"
+
+
+def test_reads_a_real_industry_sheet_structure(tmp_path):
+    """The published 編集指示書 gives each entry two rows, puts the text in a
+    merged block, and paginates every ten entries. A one-row-per-entry
+    assumption silently writes into the wrong cells."""
+    from openpyxl import Workbook
+
+    from app.agents import telop_sheet
+
+    template = tmp_path / "real_like.xlsx"
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "1-10"
+    ws["A2"] = "※表示字幕文字数の目安は、1行20文字、2行までが読みやすい目安となります"
+    ws["B4"], ws["B5"] = "開始タイム", "終了タイム"
+    ws["H4"] = "ソース言語（元言語）"
+    ws["R4"] = "ターゲット言語（テロップ表示言語）"
+    for i in range(10):
+        r = 6 + i * 2
+        ws.merge_cells(f"A{r}:A{r+1}")
+        ws[f"A{r}"] = i + 1
+        ws.merge_cells(f"H{r}:Q{r+1}")
+    wb.create_sheet("11-20")
+    wb.save(template)
+
+    mapping = telop_sheet.infer_mapping(template)
+    assert mapping.row_stride == 2, "an entry spans two rows on this sheet"
+    assert mapping.first_data_row == 6
+    assert mapping.entries_per_sheet == 10, "sheet names like 1-10 mean ten per page"
+    assert mapping.max_chars_per_line == 20, "the sheet states its own line limit"
+    assert mapping.fields["text"].column == "H", "the note row must not be mistaken for a header"
+    assert mapping.fields["in_tc"].row_offset == 0
+    assert mapping.fields["out_tc"].row_offset == 1
 
 
 def test_figures_are_never_broken_across_lines():
