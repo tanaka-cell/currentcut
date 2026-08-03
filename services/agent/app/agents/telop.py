@@ -22,6 +22,7 @@ import re
 from pydantic import BaseModel, Field
 
 from ..clients.gemini_client import gemini
+from . import house_style
 from ..models.schemas import (
     Claim, EvidenceStatus, ResearchResult, ScriptLine, Segment, TelopEntry,
 )
@@ -49,6 +50,7 @@ Rules:
 - Drop filler and honorific padding; keep it readable at a glance.
 - If it cannot be said within the limit, shorten the wording, not the facts.
 
+{house_style}
 Type of telop: {telop_type}
 Material: {material}
 Return JSON."""
@@ -62,6 +64,12 @@ def draft_telops(project_id: str, lines: list[ScriptLine], segments: list[Segmen
     for r in research:
         research_by_claim.setdefault(r.claim_id, []).append(r)
 
+    # The programme's own conventions, learned from scripts it has already
+    # aired, if the director has supplied any.
+    style = house_style.load(project_id)
+    style_block = house_style.as_prompt_block(style)
+    credit_format = (style.source_credit_format if style else "") or "出典 ◯◯"
+
     entries: list[TelopEntry] = []
     named: set[str] = set()  # a speaker is supered once, not on every line
     for line in sorted(lines, key=lambda l: l.order):
@@ -69,7 +77,8 @@ def draft_telops(project_id: str, lines: list[ScriptLine], segments: list[Segmen
         if seg is None:
             continue
         for entry in _entries_for_line(project_id, line, seg, claim_by_id,
-                                       research_by_claim, named):
+                                       research_by_claim, named, style_block,
+                                       credit_format):
             entry.order = len(entries) + 1
             # Nothing is silently truncated, so an over-long line is surfaced
             # for the director to shorten rather than hidden.
@@ -87,7 +96,8 @@ def draft_telops(project_id: str, lines: list[ScriptLine], segments: list[Segmen
 def _entries_for_line(project_id: str, line: ScriptLine, seg: Segment,
                       claim_by_id: dict[str, Claim],
                       research_by_claim: dict[str, list[ResearchResult]],
-                      named: set[str]) -> list[TelopEntry]:
+                      named: set[str], style_block: str = "",
+                      credit_format: str = "出典 ◯◯") -> list[TelopEntry]:
     out: list[TelopEntry] = []
 
     # Name super: on the speaker's first appearance only. Re-supering someone on
@@ -109,7 +119,7 @@ def _entries_for_line(project_id: str, line: ScriptLine, seg: Segment,
             project_id=project_id, script_line_id=line.id,
             in_seconds=line.start_seconds, out_seconds=min(line.start_seconds + 4, line.end_seconds),
             telop_type="place",
-            text_lines=_fit(_condense(seg.visual_summary, "place super")),
+            text_lines=_fit(_condense(seg.visual_summary, "place super", style_block)),
             evidence_status=EvidenceStatus.FOOTAGE_CONFIRMED,
         ))
 
@@ -126,8 +136,8 @@ def _entries_for_line(project_id: str, line: ScriptLine, seg: Segment,
                 project_id=project_id, script_line_id=line.id,
                 in_seconds=line.start_seconds, out_seconds=line.end_seconds,
                 telop_type="data",
-                text_lines=_fit(_condense(claim.claim_text, "data telop")),
-                source_note=f"出典 {supporting[0].source_domain}",
+                text_lines=_fit(_condense(claim.claim_text, "data telop", style_block)),
+                source_note=credit_format.replace("◯◯", supporting[0].source_domain),
                 evidence_status=claim.verification_status,
                 caution=claim.volatility_note,
             ))
@@ -136,7 +146,7 @@ def _entries_for_line(project_id: str, line: ScriptLine, seg: Segment,
                 project_id=project_id, script_line_id=line.id,
                 in_seconds=line.start_seconds, out_seconds=line.end_seconds,
                 telop_type="data",
-                text_lines=_fit(_condense(claim.claim_text, "data telop")),
+                text_lines=_fit(_condense(claim.claim_text, "data telop", style_block)),
                 evidence_status=claim.verification_status,
                 caution="⚠この数字のまま出さない　公開情報と食い違い　要確認",
             ))
@@ -145,7 +155,7 @@ def _entries_for_line(project_id: str, line: ScriptLine, seg: Segment,
                 project_id=project_id, script_line_id=line.id,
                 in_seconds=line.start_seconds, out_seconds=line.end_seconds,
                 telop_type="data",
-                text_lines=_fit(_condense(claim.claim_text, "data telop")),
+                text_lines=_fit(_condense(claim.claim_text, "data telop", style_block)),
                 evidence_status=claim.verification_status,
                 caution=claim.volatility_note
                 or "裏付けなし　話者の発言として出すか　数字を外す",
@@ -157,19 +167,20 @@ def _entries_for_line(project_id: str, line: ScriptLine, seg: Segment,
             project_id=project_id, script_line_id=line.id,
             in_seconds=line.start_seconds, out_seconds=line.end_seconds,
             telop_type="comment",
-            text_lines=_fit(_condense(line.audio_text, "comment follow")),
+            text_lines=_fit(_condense(line.audio_text, "comment follow", style_block)),
             evidence_status=EvidenceStatus.FOOTAGE_CONFIRMED,
         ))
     return out
 
 
-def _condense(material: str, telop_type: str) -> str:
+def _condense(material: str, telop_type: str, style_block: str = "") -> str:
     if gemini.mock or not material.strip():
         return _strip_punctuation(material)
     try:
         result = gemini.structured(
             _CONDENSE_PROMPT.format(max_lines=MAX_LINES, max_chars=MAX_CHARS_PER_LINE,
-                                    telop_type=telop_type, material=material),
+                                    telop_type=telop_type, material=material,
+                                    house_style=style_block),
             _Condensed,
         )
         if result.lines:

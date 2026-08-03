@@ -10,8 +10,91 @@ from ..models.schemas import (
     Claim, Confidentiality, EvidenceStatus, Project, ResearchResult, ScriptLine, Segment,
 )
 from ..storage import store
+from . import house_style
 
 _SHOT_ORDER = {"exterior": 0, "broll": 1, "interview": 2, "reaction": 3, "other": 4}
+# Programmes that open on a reaction rather than an establishing shot.
+_REACTION_FIRST_ORDER = {"reaction": 0, "interview": 1, "exterior": 2, "broll": 3, "other": 4}
+
+
+def _write_to_corner_format(project: Project, style, airable: list[Segment],
+                            claims: list[Claim], research: list[ResearchResult]) -> list[ScriptLine]:
+    """Fill the corner's running order, block by block, from this shoot.
+
+    A block with nothing to put in it is the useful output, not a failure: it
+    tells the director what this corner normally has at that point and what they
+    are missing, while there is still time to shoot it.
+    """
+    claims_by_segment: dict[str, list[Claim]] = {}
+    for c in claims:
+        claims_by_segment.setdefault(c.segment_id, []).append(c)
+    research_by_claim: dict[str, list[ResearchResult]] = {}
+    for r in research:
+        research_by_claim.setdefault(r.claim_id, []).append(r)
+
+    remaining = sorted(airable, key=lambda s: -s.usability_score)
+    lines: list[ScriptLine] = []
+    cursor = 0.0
+
+    for block in sorted(style.blocks, key=lambda b: b.order):
+        want = block.typical_seconds or 20
+        match = next((s for s in remaining if s.shot_type == block.shot_type), None)
+        if match is None:
+            # Nothing on this shoot fits the slot. Hold the place and say so.
+            lines.append(ScriptLine(
+                project_id=project.id, order=len(lines),
+                start_seconds=round(cursor, 2), end_seconds=round(cursor + want, 2),
+                visual_instruction=f"［{block.role}］{block.purpose or block.notes}",
+                evidence_status=EvidenceStatus.EDITORIAL_LANGUAGE,
+                editorial_note=f"素材なし　このコーナーは通常ここに{_SHOT_JA.get(block.shot_type, block.shot_type)}"
+                               f"を約{want}秒　追撮かナレーションで埋める",
+            ))
+            cursor += want
+            continue
+
+        remaining.remove(match)
+        duration = min(match.end_seconds - match.start_seconds, float(want))
+        seg_claims = claims_by_segment.get(match.id, [])
+        featured = _featured_claim(seg_claims)
+        evidence = _line_evidence(match, featured)
+        note = _note(evidence, featured, research_by_claim)
+        short_by = want - duration
+        if short_by > 3:
+            gap = f"{block.role}は通常{want}秒　この素材は{duration:.0f}秒　{short_by:.0f}秒不足"
+            note = f"{note}／{gap}" if note else gap
+
+        lines.append(ScriptLine(
+            project_id=project.id, order=len(lines),
+            start_seconds=round(cursor, 2), end_seconds=round(cursor + duration, 2),
+            visual_instruction=f"［{block.role}］{match.visual_summary or match.shot_type}",
+            audio_text=match.transcript if match.shot_type in ("interview", "reaction") else "",
+            caption_text=_caption_for(match, featured, research_by_claim),
+            asset_id=match.asset_id, segment_id=match.id,
+            source_in_seconds=match.start_seconds,
+            source_out_seconds=match.start_seconds + duration,
+            claim_ids=[c.id for c in seg_claims],
+            evidence_status=evidence, confidentiality=match.confidentiality,
+            editorial_note=note,
+        ))
+        cursor += duration
+
+    store.clear(project.id, "script_lines")
+    store.put_many(project.id, "script_lines", lines)
+    return lines
+
+
+_SHOT_JA = {"interview": "インタビュー", "reaction": "リアクション",
+            "broll": "Bロール", "exterior": "外観", "other": "その他"}
+
+
+def _shot_order_for(style) -> dict[str, int]:
+    """Honour the opening device the programme actually uses."""
+    if style is None:
+        return _SHOT_ORDER
+    opening = " ".join(style.structure[:2])
+    if any(word in opening for word in ("反応", "リアクション", "声から", "コメントから")):
+        return _REACTION_FIRST_ORDER
+    return _SHOT_ORDER
 
 
 def write_script(
@@ -23,8 +106,16 @@ def write_script(
     airable = [s for s in segments if s.allow_script_use and s.confidentiality
                not in (Confidentiality.CONFIDENTIAL, Confidentiality.OFF_THE_RECORD,
                        Confidentiality.PERSONAL_DATA, Confidentiality.NEEDS_HUMAN_REVIEW)]
-    # Simple factual-feature arc: establish (exterior/broll) → interviews → reactions.
-    airable.sort(key=lambda s: (_SHOT_ORDER.get(s.shot_type, 4), -s.usability_score))
+
+    style = house_style.load(project.id)
+    if style and style.blocks:
+        # The corner has a shape of its own, learned from past editions. Build
+        # to that shape and say which slots this shoot cannot fill.
+        return _write_to_corner_format(project, style, airable, claims, research)
+
+    # Otherwise the default factual-feature arc: establish → interviews → reactions.
+    order = _shot_order_for(style)
+    airable.sort(key=lambda s: (order.get(s.shot_type, 4), -s.usability_score))
 
     claims_by_segment: dict[str, list[Claim]] = {}
     for c in claims:

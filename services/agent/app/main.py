@@ -8,7 +8,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel
 
 from . import adk_pipeline, config, demo, pipeline
-from .agents import telop_form, telop_sheet
+from .agents import house_style, telop_form, telop_sheet
 from .models.schemas import (
     AgentRun, Asset, Claim, EgressLog, Project, ResearchResult, ScriptLine, Segment,
     TelopEntry,
@@ -278,6 +278,58 @@ def download_telop_pdf(project_id: str):
     if not pdf.exists():
         raise HTTPException(404, "render the sheets first")
     return FileResponse(pdf, media_type="application/pdf", filename="telop_sheets.pdf")
+
+
+@app.post("/projects/{project_id}/house-style")
+async def learn_house_style(project_id: str, files: list[UploadFile] = File(...)):
+    """Learn the corner's running order from editions it has already aired.
+
+    Upload past scripts of the SAME recurring corner (.txt/.md/.pdf/.docx).
+    Around 30–50 gives a reliable shape; ten is enough to see the obvious
+    pattern. What comes back is a readable profile the director can correct —
+    not a trained model. The scripts are the programme's own material and are
+    never sent to external search.
+    """
+    _require_project(project_id)
+    upload_dir = config.OUTPUT_DIR / project_id / "past_scripts"
+    upload_dir.mkdir(parents=True, exist_ok=True)
+
+    saved = []
+    for item in files[:house_style.MAX_SCRIPTS]:
+        name = Path(item.filename or "").name
+        if not name.lower().endswith(house_style.SUPPORTED):
+            continue
+        path = upload_dir / name
+        path.write_bytes(await item.read())
+        saved.append(path)
+    if not saved:
+        raise HTTPException(400, f"upload past scripts as {', '.join(house_style.SUPPORTED)}")
+
+    try:
+        style = house_style.learn(project_id, saved)
+    except Exception as exc:
+        raise HTTPException(422, str(exc))
+    return style.model_dump()
+
+
+@app.get("/projects/{project_id}/house-style")
+def get_house_style(project_id: str):
+    _require_project(project_id)
+    style = house_style.load(project_id)
+    if style is None:
+        raise HTTPException(404, "no past scripts have been learned from yet")
+    return style.model_dump()
+
+
+@app.put("/projects/{project_id}/house-style")
+def correct_house_style(project_id: str, body: house_style.HouseStyle):
+    """The director's corrections win. This is the point of keeping the profile
+    readable rather than training a model on the scripts."""
+    _require_project(project_id)
+    body.project_id = project_id
+    body.confirmed_by_director = True
+    store.put(project_id, "house_style", body)
+    return body.model_dump()
 
 
 @app.get("/projects/{project_id}/segments")
