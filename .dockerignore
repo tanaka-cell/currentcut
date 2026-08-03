@@ -1,0 +1,12 @@
+**/.venv/
+**/__pycache__/
+**/*.pyc
+.git/
+_review/
+data/
+services/agent/output/
+apps/web/node_modules/
+infra/
+docs/
+*.md
+!README.md

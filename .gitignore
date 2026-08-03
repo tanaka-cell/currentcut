@@ -8,12 +8,13 @@ node_modules/
 .next/
 dist/
 data/
-demo-assets/generated/
 services/agent/output/
 *.mp4
 *.mp3
 *.wav
-!demo-assets/checked-in/**
+# The Quick Judge Demo footage ships with the repo: a clean clone (and the
+# container image) must be able to run the demo without regenerating it.
+!demo-assets/generated/**
 .pytest_cache/
 .mypy_cache/
 .DS_Store

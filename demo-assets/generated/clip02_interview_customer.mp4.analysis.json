@@ -1,0 +1,22 @@
+{
+ "segments": [
+  {
+   "start_seconds": 0.5,
+   "end_seconds": 3.63,
+   "speaker": "常連客(60代)",
+   "transcript": "やっぱり、手で淹れたコーヒーは違いますよ。",
+   "visual_summary": "カウンター席に座る常連客のインタビュー、手元にコーヒーカップ",
+   "shot_type": "reaction",
+   "usability_score": 0.85
+  },
+  {
+   "start_seconds": 4.13,
+   "end_seconds": 7.78,
+   "speaker": "常連客(60代)",
+   "transcript": "この商店街も、お店がずいぶん減りましたね。",
+   "visual_summary": "カウンター席に座る常連客のインタビュー、手元にコーヒーカップ",
+   "shot_type": "reaction",
+   "usability_score": 0.85
+  }
+ ]
+}

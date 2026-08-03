@@ -55,10 +55,15 @@ Answer:
 - source_value: the value the source states, verbatim ("" if none).
 - source_is_primary: true only for the subject's own official page, an IR/press
   release, or a government/public statistics source.
-- dated_qualifier: if the source says this value has an expiry, a validity
-  period, or a scheduled change (e.g. "campaign price until August 31",
-  "two new stores opening in August", "figures as of the end of June"),
-  quote it briefly. Otherwise "".
+- dated_qualifier: ONLY when the source limits how long this value stays true,
+  in a way a director would need to act on before broadcast. Three cases count:
+  an expiry still ahead ("campaign price until August 31"), a scheduled change
+  ("two new stores open in August", "the rate changes in October"), or an
+  as-of date on a figure that is republished on a cycle ("as of the end of
+  June", "May estimate"). Otherwise return "".
+  Do NOT return historical background dates, when a rule was originally
+  introduced, publication dates of the article, or anything already in the past
+  with no bearing on whether the figure is still current.
 - reason: one sentence.
 
 Support requires entity_match AND attribute_match AND value_match to all be true."""

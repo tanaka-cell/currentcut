@@ -115,6 +115,10 @@ class ResearchResult(BaseModel):
     excerpt: str = ""
     source_type: str = "web"  # official | government | news | web
     supports_claim: Optional[bool] = None
+    # Kept separately so "conflicting" can mean "same subject, different number"
+    # rather than "some unrelated page also contained a number".
+    entity_match: bool = False
+    attribute_match: bool = False
     source_value: str = ""
     dated_qualifier: str = ""  # expiry / validity / scheduled change stated by the source
     judgment_reason: str = ""

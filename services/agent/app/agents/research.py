@@ -37,6 +37,8 @@ def research_claims(
         for r in results:
             judgment = evidence.judge(claim, r)
             r.supports_claim = evidence.supports(judgment)
+            r.entity_match = judgment.entity_match
+            r.attribute_match = judgment.attribute_match
             r.source_value = judgment.source_value
             r.dated_qualifier = judgment.dated_qualifier
             r.judgment_reason = judgment.reason
@@ -78,7 +80,8 @@ def research_claims(
 
 
 def _conflicting(claim: Claim, results: list[ResearchResult]) -> bool:
-    """Sources that discuss the same thing but state a different value."""
-    values = {r.source_value for r in results
-              if r.source_value and not r.supports_claim}
-    return len(values) > 0
+    """A conflict is a source about the SAME subject and the SAME attribute that
+    states a different value. A page that merely happens to contain a number is
+    not a conflict — it is noise."""
+    return any(r.entity_match and r.attribute_match and r.source_value
+               and not r.supports_claim for r in results)

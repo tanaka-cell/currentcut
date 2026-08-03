@@ -1,0 +1,49 @@
+{
+ "segments": [
+  {
+   "start_seconds": 0.5,
+   "end_seconds": 5.19,
+   "speaker": "青葉珈琲店 店主",
+   "transcript": "父の代からこの商店街で、四十年ちかく喫茶店をやっています。",
+   "visual_summary": "喫茶店のカウンター越しに店主のインタビュー、胸から上のミディアムショット",
+   "shot_type": "interview",
+   "usability_score": 0.85
+  },
+  {
+   "start_seconds": 5.69,
+   "end_seconds": 13.18,
+   "speaker": "青葉珈琲店 店主",
+   "transcript": "コンビニエンスストアは、いま全国におよそ五万六千店あります。どこでも手軽にコーヒーが飲める時代です。",
+   "visual_summary": "喫茶店のカウンター越しに店主のインタビュー、胸から上のミディアムショット",
+   "shot_type": "interview",
+   "usability_score": 0.85
+  },
+  {
+   "start_seconds": 13.68,
+   "end_seconds": 20.09,
+   "speaker": "青葉珈琲店 店主",
+   "transcript": "うちも、お持ち帰りは八パーセント、店内でお召し上がりは十パーセントの消費税をいただいています。",
+   "visual_summary": "喫茶店のカウンター越しに店主のインタビュー、胸から上のミディアムショット",
+   "shot_type": "interview",
+   "usability_score": 0.85
+  },
+  {
+   "start_seconds": 20.59,
+   "end_seconds": 26.4,
+   "speaker": "青葉珈琲店 店主",
+   "transcript": "うちは一日およそ百杯。この十年でお客さんは三割ほど減りました。",
+   "visual_summary": "喫茶店のカウンター越しに店主のインタビュー、胸から上のミディアムショット",
+   "shot_type": "interview",
+   "usability_score": 0.85
+  },
+  {
+   "start_seconds": 26.9,
+   "end_seconds": 34.91,
+   "speaker": "青葉珈琲店 店主",
+   "transcript": "ここはオフレコですが、来月から二号店を出す話が進んでいます。まだ発表前なので放送では使わないでください。",
+   "visual_summary": "喫茶店のカウンター越しに店主のインタビュー、胸から上のミディアムショット",
+   "shot_type": "interview",
+   "usability_score": 0.85
+  }
+ ]
+}

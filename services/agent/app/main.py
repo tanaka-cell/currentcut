@@ -1,16 +1,48 @@
 """CurrentCut agent service — FastAPI."""
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel
 
-from . import adk_pipeline, config, pipeline
+from . import adk_pipeline, config, demo, pipeline
 from .models.schemas import (
     AgentRun, Asset, Claim, EgressLog, Project, ResearchResult, ScriptLine, Segment,
 )
 from .storage import store
 
-app = FastAPI(title="CurrentCut Agent Service", version="0.1.0")
+app = FastAPI(title="CurrentCut", version="0.2.0")
+
+_STATIC = Path(__file__).resolve().parent / "static"
+
+
+@app.get("/", response_class=HTMLResponse)
+def index():
+    return (_STATIC / "index.html").read_text(encoding="utf-8")
+
+
+@app.post("/api/demo/start")
+def demo_start():
+    """Start a real overnight run on the bundled demo footage."""
+    try:
+        return {"project_id": demo.start()}
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
+
+@app.get("/api/demo/status/{project_id}")
+def demo_status(project_id: str):
+    return demo.status(project_id)
+
+
+@app.get("/media/{project_id}/rough_cut.mp4")
+def rough_cut(project_id: str):
+    path = demo.rough_cut_path(project_id)
+    if path is None:
+        raise HTTPException(404, "rough cut not rendered yet")
+    return FileResponse(path, media_type="video/mp4")
 
 
 class CreateProject(BaseModel):
@@ -43,8 +75,17 @@ def create_project(body: CreateProject):
 
 @app.post("/projects/{project_id}/assets")
 def add_assets(project_id: str, body: AddAssets):
+    """Register footage. Paths are restricted to the bundled demo directory —
+    a hosted service must not read arbitrary files off its own disk."""
     _require_project(project_id)
-    assets = pipeline.step_ingest(project_id, body.video_paths)
+    allowed_root = config.DEMO_ASSETS_DIR.resolve()
+    resolved: list[str] = []
+    for raw in body.video_paths:
+        path = Path(raw).resolve()
+        if not path.is_file() or allowed_root not in path.parents:
+            raise HTTPException(400, f"footage must be one of the bundled demo clips: {Path(raw).name}")
+        resolved.append(str(path))
+    assets = pipeline.step_ingest(project_id, resolved)
     return {"registered": [a.model_dump() for a in assets]}
 
 

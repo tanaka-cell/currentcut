@@ -1,19 +1,26 @@
-"""Generate the fictional "AIスマート弁当箱" shoot for the Quick Judge Demo.
+"""Generate the demo shoot for the Quick Judge Demo — a small factual feature
+about an independent coffee shop under pressure from convenience-store coffee.
 
-Fully synthetic — no real client footage. Each clip is FFmpeg-composed
-(colored scene + burned-in scene label). Interview audio uses Gemini TTS when
-GEMINI_API_KEY is present (Google TTS is contest-allowed), otherwise a tone.
+Fully synthetic: the shop, the owner and the customer are invented, and no real
+person or company is quoted. What is deliberately NOT invented is the public
+statistic the owner cites — the national convenience-store count published by
+the Japan Franchise Association. A fictional product cannot be fact-checked,
+because no real evidence for it exists anywhere; that was the flaw in the first
+version of this demo, where a real web search could only return unrelated pages
+that happened to share a number.
 
-Each clip gets a `<name>.mp4.analysis.json` sidecar: the ground truth used by
-mock mode and by acceptance tests. Deliberately planted content (brief §11):
-  - public product explanation
-  - "全国80店舗" (verifiable claim)
-  - "価格は1,980円" (will change before air)
-  - "ここはオフレコですが…" (off-record, must be protected)
-  - customer reaction with "人気" (needs human approval before search)
-  - product B-roll + storefront exterior
+Planted on purpose, one per capability:
+  - a public statistic with a primary source        → should verify
+  - a figure that is only true "as of" a given month → volatility flag
+  - shop-level numbers with no public data           → must stay unverified
+  - an explicit off-record remark                    → must never leave
+  - B-roll and an exterior                           → structure for the cut
 
-Usage: python scripts/make_demo_assets.py  (from repo root or scripts/)
+Audio uses Gemini TTS when GEMINI_API_KEY is present, otherwise a tone. Each
+clip gets a `<name>.mp4.analysis.json` sidecar holding the ground truth, used
+by mock mode and by the acceptance tests.
+
+Usage: python scripts/make_demo_assets.py
 """
 from __future__ import annotations
 
@@ -37,52 +44,61 @@ GAP = 0.5  # seconds of silence between utterances
 
 CLIPS = [
     {
-        "name": "clip01_interview_ceo",
-        "color": "0x2b3a55",
-        "label": "INTERVIEW - スマートベントー社 社長",
+        "name": "clip01_interview_owner",
+        "color": "0x3b2f26",
+        "label": "INTERVIEW - 青葉珈琲店 店主",
         "shot_type": "interview",
-        "speaker": "スマートベントー社 社長",
+        "speaker": "青葉珈琲店 店主",
         "voice": "Charon",
-        "visual": "オフィスでの社長インタビュー、胸から上のミディアムショット",
+        "visual": "喫茶店のカウンター越しに店主のインタビュー、胸から上のミディアムショット",
         "utterances": [
-            "私たちのAIスマート弁当箱は、中身の栄養バランスを自動で記録してくれる新しい商品です。",
-            "おかげさまで、現在、全国に80店舗で販売しています。",
-            "価格は1,980円です。手に取りやすい値段にこだわりました。",
-            "ここはオフレコですが、来月銀座に新店舗を出す予定なんです。まだ発表前なので放送では使わないでください。",
+            # background — no factual claim to check
+            "父の代からこの商店街で、四十年ちかく喫茶店をやっています。",
+            # A remembered figure that is genuinely out of date. Public reporting
+            # now puts the number higher, so this should come back as conflicting
+            # with the current figure shown — the tool catching the director's
+            # error before the structure is locked.
+            "コンビニエンスストアは、いま全国におよそ五万六千店あります。どこでも手軽にコーヒーが飲める時代です。",
+            # A correct, checkable rule with a government primary source.
+            "うちも、お持ち帰りは八パーセント、店内でお召し上がりは十パーセントの消費税をいただいています。",
+            # shop-level numbers — no public data exists, must stay unverified
+            "うちは一日およそ百杯。この十年でお客さんは三割ほど減りました。",
+            # off-record — must never reach search, script or cut
+            "ここはオフレコですが、来月から二号店を出す話が進んでいます。まだ発表前なので放送では使わないでください。",
         ],
     },
     {
         "name": "clip02_interview_customer",
         "color": "0x4a3b2a",
-        "label": "INTERVIEW - 利用客",
+        "label": "INTERVIEW - 常連客",
         "shot_type": "reaction",
-        "speaker": "利用客(30代)",
+        "speaker": "常連客(60代)",
         "voice": "Aoede",
-        "visual": "店頭での利用客インタビュー、手にスマート弁当箱を持っている",
+        "visual": "カウンター席に座る常連客のインタビュー、手元にコーヒーカップ",
         "utterances": [
-            "えっ、これすごい！お弁当がしゃべるなんて思わなかった！",
-            "最近SNSでも人気ですよね。友達もみんな話題にしています。",
+            "やっぱり、手で淹れたコーヒーは違いますよ。",
+            "この商店街も、お店がずいぶん減りましたね。",
         ],
     },
     {
-        "name": "clip03_broll_product",
-        "color": "0x3a5540",
-        "label": "B-ROLL - 商品アップ",
+        "name": "clip03_broll_pour",
+        "color": "0x2f3f36",
+        "label": "B-ROLL - ハンドドリップ",
         "shot_type": "broll",
         "speaker": "",
         "voice": None,
-        "visual": "白いテーブルの上のAIスマート弁当箱のクローズアップ、LED表示が点灯",
+        "visual": "ハンドドリップでコーヒーを淹れる手元のクローズアップ、湯気が立つ",
         "utterances": [],
         "duration": 8,
     },
     {
-        "name": "clip04_exterior_store",
+        "name": "clip04_exterior_shotengai",
         "color": "0x554433",
-        "label": "EXTERIOR - 店舗外観",
+        "label": "EXTERIOR - 商店街の外観",
         "shot_type": "exterior",
         "speaker": "",
         "voice": None,
-        "visual": "商業ビル1階の店舗外観、通行人が行き交う",
+        "visual": "夕方の商店街、シャッターの下りた店舗が並ぶ",
         "utterances": [],
         "duration": 6,
     },

@@ -42,8 +42,12 @@ def write_script(
         if cursor + seg_duration > budget:
             break
         seg_claims = claims_by_segment.get(seg.id, [])
-        evidence = _line_evidence(seg, seg_claims)
-        caption = _caption_for(seg, seg_claims, research_by_claim)
+        # One claim carries the line: the caption, the evidence status and the
+        # note must all describe the same claim, or the line contradicts itself
+        # (a caption citing a source under a status saying nothing backs it).
+        featured = _featured_claim(seg_claims)
+        evidence = _line_evidence(seg, featured)
+        caption = _caption_for(seg, featured, research_by_claim)
 
         lines.append(ScriptLine(
             project_id=project.id,
@@ -60,8 +64,7 @@ def write_script(
             claim_ids=[c.id for c in seg_claims],
             evidence_status=evidence,
             confidentiality=seg.confidentiality,
-            editorial_note="" if evidence != EvidenceStatus.UNVERIFIED or not seg_claims
-            else "Verify before air: claim(s) unconfirmed",
+            editorial_note=_note(evidence, featured, research_by_claim),
         ))
         cursor += seg_duration
 
@@ -70,34 +73,67 @@ def write_script(
     return lines
 
 
-def _line_evidence(seg: Segment, seg_claims: list[Claim]) -> EvidenceStatus:
+# Which claim a line leads with, when a segment contains several. A director
+# needs the one that most changes what they do: a contradiction first, then an
+# unbacked number, then a confirmed fact worth captioning.
+_CLAIM_PRIORITY = {
+    EvidenceStatus.CONFLICTING: 0,
+    EvidenceStatus.UNVERIFIED: 1,
+    EvidenceStatus.MULTIPLE_SOURCES_CONFIRMED: 2,
+    EvidenceStatus.PRIMARY_SOURCE_CONFIRMED: 3,
+}
+
+
+def _featured_claim(seg_claims: list[Claim]) -> Claim | None:
     if not seg_claims:
+        return None
+    return sorted(seg_claims,
+                  key=lambda c: _CLAIM_PRIORITY.get(c.verification_status, 4))[0]
+
+
+def _note(evidence: EvidenceStatus, claim: Claim | None,
+          research_by_claim: dict[str, list[ResearchResult]]) -> str:
+    """What the director needs to decide about this line, in plain words."""
+    if claim is None:
+        return ""
+    if evidence == EvidenceStatus.CONFLICTING:
+        others = [r for r in research_by_claim.get(claim.id, [])
+                  if r.source_value and not r.supports_claim
+                  and r.entity_match and r.attribute_match]
+        others.sort(key=lambda r: 0 if r.source_type in ("official", "government") else 1)
+        if others:
+            found = others[0]
+            return (f"Sources give a different figure: {found.source_value} "
+                    f"({found.source_domain}). The line as spoken may be out of date.")
+        return "Sources disagree with the line as spoken."
+    if evidence == EvidenceStatus.UNVERIFIED:
+        if claim.volatility_note:
+            return claim.volatility_note
+        return "No public source backs this. Attribute it to the speaker or drop the number."
+    if claim.volatility_note:
+        return f"{claim.volatility_note} — confirm before locking."
+    return ""
+
+
+def _line_evidence(seg: Segment, claim: Claim | None) -> EvidenceStatus:
+    if claim is None:
         # No factual claim: the footage itself is the source.
         return EvidenceStatus.FOOTAGE_CONFIRMED if seg.transcript else EvidenceStatus.EDITORIAL_LANGUAGE
-    statuses = {c.verification_status for c in seg_claims}
-    if EvidenceStatus.CONFLICTING in statuses:
-        return EvidenceStatus.CONFLICTING
-    if EvidenceStatus.UNVERIFIED in statuses:
-        return EvidenceStatus.UNVERIFIED
-    if EvidenceStatus.MULTIPLE_SOURCES_CONFIRMED in statuses:
-        return EvidenceStatus.MULTIPLE_SOURCES_CONFIRMED
-    return EvidenceStatus.PRIMARY_SOURCE_CONFIRMED
+    return claim.verification_status
 
 
-def _caption_for(seg: Segment, seg_claims: list[Claim],
+def _caption_for(seg: Segment, claim: Claim | None,
                  research_by_claim: dict[str, list[ResearchResult]]) -> str:
-    for c in seg_claims:
-        if c.verification_status not in (EvidenceStatus.PRIMARY_SOURCE_CONFIRMED,
-                                         EvidenceStatus.MULTIPLE_SOURCES_CONFIRMED):
-            continue
+    if claim is not None and claim.verification_status in (
+            EvidenceStatus.PRIMARY_SOURCE_CONFIRMED,
+            EvidenceStatus.MULTIPLE_SOURCES_CONFIRMED):
         # Only a source that actually supports the claim may be cited. Citing
         # results[0] regardless of support is how an anime fan site ended up
         # printed as the source for a product price.
-        supporting = [r for r in research_by_claim.get(c.id, []) if r.supports_claim]
+        supporting = [r for r in research_by_claim.get(claim.id, []) if r.supports_claim]
         supporting.sort(key=lambda r: 0 if r.source_type in ("official", "government") else 1)
-        if not supporting:
-            continue
-        return f"{c.claim_text}（出典: {supporting[0].source_domain}）"
+        if supporting:
+            return f"{claim.claim_text}（出典: {supporting[0].source_domain}）"
     if seg.speaker and seg.shot_type == "interview":
         return seg.speaker
     return ""

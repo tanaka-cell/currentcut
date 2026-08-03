@@ -28,6 +28,7 @@ class _LlmClaim(BaseModel):
     claim_subject: str
     claim_type: str
     safe_search_query: str
+    about_speakers_own_business: bool = False
 
 
 class _LlmClaims(BaseModel):
@@ -47,6 +48,13 @@ appear to match.
 claim_subject: the entity the claim is about (product or company name), or ""
 if the transcript genuinely does not identify one.
 
+about_speakers_own_business: true when the claim is about the speaker's own
+shop, company or personal situation — their own takings, their own headcount,
+how long they have traded, how their own customers have changed. Such figures
+are not published anywhere, so searching the web for them returns unrelated
+pages that merely share a number. Mark them true and they will be attributed to
+the speaker instead of being checked.
+
 For each claim build a SAFE search query: short keywords only
 (entity + metric + "公式" + year). NEVER quote the transcript sentence itself.
 Write claim_text in the same language as the transcript.
@@ -62,11 +70,11 @@ Return JSON."""
 
 # Deterministic extraction for mock mode / tests.
 _MOCK_RULES = [
-    (r"(?P<num>[\d,]+)\s*店舗", "store_count", "スマートベントー 店舗数 公式 2026"),
-    (r"(?P<num>[\d,]+)\s*円", "price", "SmartBento 価格 公式 2026"),
-    (r"満足度\s*(?P<num>[\d.]+)\s*[%％]", "stat", "弁当箱 市場 満足度 調査 2026"),
-    (r"(人気|話題|バズって)", "popularity", "スマート弁当箱 人気 2026"),
-    (r"(日本初|業界初|最大|唯一)", "superlative", "スマート弁当箱 日本初 2026"),
+    (r"(?P<num>[\d,]+)\s*店舗", "store_count", "店舗数 統計 公式 2026"),
+    (r"(?P<num>[\d,]+)\s*円", "price", "価格 公式 2026"),
+    (r"満足度\s*(?P<num>[\d.]+)\s*[%％]", "stat", "満足度 調査 統計 2026"),
+    (r"(人気|話題|バズって)", "popularity", "人気 調査 2026"),
+    (r"(日本初|業界初|最大|唯一)", "superlative", "日本初 公式 2026"),
 ]
 
 
@@ -92,24 +100,31 @@ def extract_claims(project_id: str, segments: list[Segment]) -> list[Claim]:
                     _LlmClaims,
                 )
                 extracted = [
-                    (_with_subject(c.claim_text, c.claim_subject), c.claim_type, c.safe_search_query)
+                    (_with_subject(c.claim_text, c.claim_subject), c.claim_type,
+                     c.safe_search_query, c.about_speakers_own_business)
                     for c in llm.claims
                 ]
             except Exception:
                 extracted = _mock_extract(seg.transcript)  # degraded, still safe
 
-        for claim_text, claim_type, safe_query in extracted:
+        for claim_text, claim_type, safe_query, own_business in extracted:
             if _seen_before(claim_text, claim_type, claims):
                 continue  # same fact restated; verify it once
             needs_human = claim_type in _HUMAN_APPROVAL_TYPES
+            # A single business's own figures are not published anywhere.
+            # Searching for them returns pages that merely share a number, so
+            # they are attributed to the speaker instead of being checked.
+            searchable = externally_searchable and not needs_human and not own_business
             claims.append(Claim(
                 segment_id=seg.id,
                 claim_text=claim_text,
                 claim_type=claim_type,
                 volatility=_VOLATILITY.get(claim_type, "medium"),
-                safe_search_query=safe_query if externally_searchable else None,
-                allow_external_search=externally_searchable and not needs_human,
+                safe_search_query=safe_query if searchable else None,
+                allow_external_search=searchable,
                 requires_human_approval=needs_human,
+                volatility_note="Speaker's own figure — no public source exists; attribute on screen"
+                if own_business else "",
             ))
     store.put_many(project_id, "claims", claims)
     return claims
@@ -140,10 +155,10 @@ def _with_subject(claim_text: str, subject: str) -> str:
     return f"{subject}: {claim_text}"
 
 
-def _mock_extract(transcript: str) -> list[tuple[str, str, str]]:
+def _mock_extract(transcript: str) -> list[tuple[str, str, str, bool]]:
     found = []
     for pattern, claim_type, query in _MOCK_RULES:
         m = re.search(pattern, transcript)
         if m:
-            found.append((m.group(0), claim_type, query))
+            found.append((m.group(0), claim_type, query, False))
     return found

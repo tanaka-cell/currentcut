@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CurrentCut — a first cut that arrives sourced</title>
+<style>
+  :root{
+    --paper:#fbf9f5; --card:#ffffff; --line:#e2ddd2;
+    --ink:#1f1d1a; --ink-soft:#57534a; --ink-faint:#78736a;
+    --accent:#0b6e63; --ok:#1f6b45; --warn:#8a5a12; --stop:#96311f;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);
+       font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",sans-serif}
+  .wrap{max-width:1080px;margin:0 auto;padding:2.5rem 1.25rem 5rem}
+  h1{font-family:Georgia,"Times New Roman",serif;font-size:2.3rem;line-height:1.2;margin:0 0 .4rem;letter-spacing:-.01em}
+  h2{font-family:Georgia,serif;font-size:1.35rem;margin:2.75rem 0 .9rem;font-weight:600}
+  .tagline{font-size:1.1rem;color:var(--ink-soft);margin:0 0 1.5rem}
+  .lede{max-width:62ch;color:var(--ink-soft)}
+  .lede strong{color:var(--ink)}
+  .cta{margin:2rem 0 .5rem}
+  button{font:inherit;font-weight:600;background:var(--accent);color:#fff;border:0;
+         border-radius:3px;padding:.85rem 1.6rem;cursor:pointer}
+  button:hover{filter:brightness(1.08)}
+  button:disabled{background:#b8b3a8;cursor:default}
+  .hint{font-size:.85rem;color:var(--ink-faint);margin-top:.6rem}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:4px;padding:1.1rem 1.25rem;margin:1rem 0}
+  .steps{list-style:none;padding:0;margin:0}
+  .steps li{display:flex;gap:.85rem;align-items:baseline;padding:.55rem 0;border-bottom:1px solid var(--line)}
+  .steps li:last-child{border-bottom:0}
+  .mark{width:1.4rem;flex:none;font-family:var(--mono);font-size:.9rem}
+  .step-label{font-weight:600;min-width:11rem}
+  .step-detail{color:var(--ink-faint);font-size:.9rem;flex:1}
+  .step-out{font-family:var(--mono);font-size:.8rem;color:var(--ink-soft);text-align:right}
+  .running .mark{color:var(--accent)} .completed .mark{color:var(--ok)}
+  .failed .mark{color:var(--stop)} .pending{opacity:.45}
+  .nums{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.75rem;margin:1rem 0}
+  .num{background:var(--card);border:1px solid var(--line);border-radius:4px;padding:.9rem 1rem}
+  .num b{display:block;font-family:var(--mono);font-size:1.7rem;font-weight:600;line-height:1.1}
+  .num span{font-size:.82rem;color:var(--ink-faint)}
+  table{width:100%;border-collapse:collapse;font-size:.9rem}
+  th{text-align:left;font-size:.75rem;letter-spacing:.06em;text-transform:uppercase;
+     color:var(--ink-faint);border-bottom:1px solid var(--line);padding:.5rem .6rem}
+  td{padding:.6rem;border-bottom:1px solid var(--line);vertical-align:top}
+  .tc{font-family:var(--mono);font-size:.8rem;color:var(--ink-faint);white-space:nowrap}
+  .tag{display:inline-block;font-family:var(--mono);font-size:.7rem;padding:.15rem .45rem;
+       border:1px solid currentColor;border-radius:2px;white-space:nowrap}
+  .t-ok{color:var(--ok)} .t-warn{color:var(--warn)} .t-stop{color:var(--stop)} .t-mute{color:var(--ink-faint)}
+  .scroll{overflow-x:auto}
+  video{width:100%;max-width:640px;border:1px solid var(--line);border-radius:4px;background:#000}
+  .src{font-size:.82rem;color:var(--ink-soft)}
+  .src a{color:var(--accent)}
+  footer{margin-top:3.5rem;padding-top:1.25rem;border-top:1px solid var(--line);
+         font-size:.82rem;color:var(--ink-faint)}
+  code{font-family:var(--mono);font-size:.85em}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>CurrentCut</h1>
+  <p class="tagline">Rest after the shoot. Wake up to a first cut.</p>
+
+  <p class="lede">
+    A director shoots a 5–15 minute factual feature, then spends the night alone with the
+    footage: logging it, checking the numbers, drafting a structure. CurrentCut works that
+    shift. By morning there is a first cut — and unlike an ordinary automatic rough cut,
+    <strong>every factual line carries the source it was checked against, and off-record
+    material has already been removed.</strong>
+  </p>
+
+  <div class="cta">
+    <button id="run">Run the overnight demo</button>
+    <div class="hint">
+      Runs for real: Gemini reads the footage, the Parallel Search API checks the claims that
+      clear the confidentiality gate, FFmpeg cuts the preview. Takes about a minute.
+    </div>
+  </div>
+
+  <section id="progress" class="hidden">
+    <h2>Overnight Run</h2>
+    <div class="card"><ul class="steps" id="steps"></ul></div>
+  </section>
+
+  <section id="results" class="hidden">
+    <h2>Morning Report</h2>
+    <div class="nums" id="nums"></div>
+
+    <h2>The script, line by line</h2>
+    <p class="lede">Each line points back to the footage timecode it came from. A number
+      reaches a caption only when a retrieved page matched it on entity, attribute and value.</p>
+    <div class="card scroll"><table id="script"></table></div>
+
+    <h2>What left the building</h2>
+    <p class="lede">Every outbound search is recorded before it is sent and again when it
+      returns. Raw transcripts are never sent — only keyword queries built from public claims.</p>
+    <div class="card scroll"><table id="egress"></table></div>
+
+    <h2>The cut</h2>
+    <div class="card"><video id="cut" controls></video></div>
+
+    <h2>Agent trace</h2>
+    <div class="card scroll"><table id="trace"></table></div>
+  </section>
+
+  <footer>
+    Gemini · Google Agent Development Kit · Parallel Search API · FFmpeg.
+    Demo footage is synthetic and fictional; the speakers are not real people.
+    Confidentiality controls are application-layer: restricted material is kept out of
+    search, script and cut by this service, but the media still exists in storage.
+  </footer>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => (s??'').toString().replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const MARK = {pending:'·', running:'▸', completed:'✓', failed:'✕'};
+
+const EV = {
+  FOOTAGE_CONFIRMED:['t-ok','footage'],
+  PRIMARY_SOURCE_CONFIRMED:['t-ok','primary source'],
+  MULTIPLE_SOURCES_CONFIRMED:['t-ok','multiple sources'],
+  EDITORIAL_LANGUAGE:['t-mute','editorial'],
+  UNVERIFIED:['t-warn','unverified'],
+  CONFLICTING:['t-stop','conflicting'],
+};
+const tag = (cls,txt) => `<span class="tag ${cls}">${esc(txt)}</span>`;
+const tc = s => { s=Math.max(0,s||0); const m=Math.floor(s/60), x=(s%60).toFixed(1).padStart(4,'0'); return `${m}:${x}`; };
+
+let projectId = null;
+
+$('#run').onclick = async () => {
+  $('#run').disabled = true;
+  $('#run').textContent = 'Running…';
+  $('#progress').classList.remove('hidden');
+  const r = await fetch('/api/demo/start', {method:'POST'});
+  if (!r.ok) { $('#run').textContent = 'Failed to start'; return; }
+  projectId = (await r.json()).project_id;
+  poll();
+};
+
+async function poll() {
+  const r = await fetch(`/api/demo/status/${projectId}`);
+  const s = await r.json();
+  renderSteps(s.steps || []);
+  if (s.state === 'running') return setTimeout(poll, 1500);
+  $('#run').textContent = s.state === 'done' ? 'Run again' : 'Failed';
+  $('#run').disabled = false;
+  if (s.state === 'done') await loadResults();
+}
+
+function renderSteps(steps) {
+  $('#steps').innerHTML = steps.map(s => `
+    <li class="${s.state}">
+      <span class="mark">${MARK[s.state] || '·'}</span>
+      <span class="step-label">${esc(s.label)}</span>
+      <span class="step-detail">${esc(s.detail)}${s.provider ? ` · <code>${esc(s.provider)}</code>` : ''}</span>
+      <span class="step-out">${esc(s.output || '')}</span>
+    </li>`).join('');
+}
+
+async function loadResults() {
+  const [report, script, egress, trace] = await Promise.all([
+    fetch(`/projects/${projectId}/report`).then(r=>r.json()),
+    fetch(`/projects/${projectId}/script`).then(r=>r.json()),
+    fetch(`/projects/${projectId}/egress`).then(r=>r.json()),
+    fetch(`/projects/${projectId}/trace`).then(r=>r.json()),
+  ]);
+  $('#results').classList.remove('hidden');
+
+  const cut = report.rough_cut || {};
+  $('#nums').innerHTML = [
+    [report.footage_minutes_analyzed ?? '—', 'minutes of footage analysed'],
+    [cut.duration_seconds ? tc(cut.duration_seconds) : '—', 'first cut assembled'],
+    [report.claims_checked ?? 0, 'claims checked'],
+    [report.confidential_moments_protected ?? 0, 'confidential moments protected'],
+    [report.decisions_need_review ?? 0, 'decisions need you'],
+  ].map(([v,l]) => `<div class="num"><b>${esc(v)}</b><span>${esc(l)}</span></div>`).join('');
+
+  const srcByClaim = {};
+  (script.sources||[]).forEach(s => { (srcByClaim[s.claim_id] ||= []).push(s); });
+  const claims = Object.fromEntries((script.claims||[]).map(c=>[c.id,c]));
+
+  $('#script').innerHTML = `<thead><tr>
+      <th>TC</th><th>Visual</th><th>Audio / caption</th><th>Evidence</th><th>Source</th>
+    </tr></thead><tbody>` +
+    (script.lines||[]).sort((a,b)=>a.order-b.order).map(l => {
+      const [cls,label] = EV[l.evidence_status] || ['t-mute', l.evidence_status];
+      const srcs = (l.claim_ids||[]).flatMap(id => (srcByClaim[id]||[]).filter(s=>s.supports_claim));
+      const notes = (l.claim_ids||[]).map(id=>claims[id]).filter(c=>c && c.volatility_note);
+      return `<tr>
+        <td class="tc">${tc(l.start_seconds)}<br>→ ${tc(l.end_seconds)}</td>
+        <td>${esc(l.visual_instruction)}</td>
+        <td>${esc(l.audio_text || '')}${l.caption_text ? `<div class="src">▸ ${esc(l.caption_text)}</div>`:''}
+            ${notes.map(c=>`<div class="src">⏳ ${esc(c.volatility_note)} — check before locking</div>`).join('')}</td>
+        <td>${tag(cls,label)}</td>
+        <td class="src">${srcs.length
+            ? srcs.map(s=>`<a href="${esc(s.source_url)}" target="_blank" rel="noopener">${esc(s.source_domain)}</a>`).join('<br>')
+            : '<span class="t-mute">—</span>'}</td>
+      </tr>`;
+    }).join('') + '</tbody>';
+
+  $('#egress').innerHTML = `<thead><tr>
+      <th>Phase</th><th>Status</th><th>Label</th><th>Query sent</th><th>Raw transcript</th><th>Reason</th>
+    </tr></thead><tbody>` +
+    egress.map(e => `<tr>
+      <td class="tc">${esc(e.phase)}</td>
+      <td>${tag(e.status==='blocked'?'t-stop':(e.status==='completed'?'t-ok':'t-mute'), e.status)}</td>
+      <td class="tc">${esc(e.classification)}</td>
+      <td>${e.query_sent ? `<code>${esc(e.query_sent)}</code>` : '<span class="t-mute">nothing sent</span>'}</td>
+      <td>${tag('t-ok','not sent')}</td>
+      <td class="src">${esc(e.reason)}</td>
+    </tr>`).join('') + '</tbody>';
+
+  $('#trace').innerHTML = `<thead><tr>
+      <th>Agent</th><th>Provider</th><th>Model / tool</th><th>Status</th><th>Latency</th><th>Result</th>
+    </tr></thead><tbody>` +
+    trace.map(t => `<tr>
+      <td>${esc(t.agent_name)}</td>
+      <td>${tag(t.provider==='mock'?'t-warn':'t-ok', t.provider)}</td>
+      <td class="tc">${esc(t.model_or_tool)}</td>
+      <td>${esc(t.status)}</td>
+      <td class="tc">${t.latency_ms} ms</td>
+      <td class="src">${esc(t.output_summary||'')}</td>
+    </tr>`).join('') + '</tbody>';
+
+  if (cut.mp4) { $('#cut').src = `/media/${projectId}/rough_cut.mp4`; }
+}
+</script>
+</body>
+</html>
