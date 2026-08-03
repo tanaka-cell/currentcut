@@ -13,7 +13,20 @@ load_dotenv(_SERVICE_ROOT / ".env")
 REPO_ROOT = _SERVICE_ROOT.parents[1]
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or ""
-PARALLEL_API_KEY = os.getenv("PARALLEL_API_KEY") or ""
+
+
+def _parallel_key() -> str:
+    if os.getenv("PARALLEL_API_KEY"):
+        return os.environ["PARALLEL_API_KEY"]
+    # Local dev convention: key file under ~/.claude/secrets (never committed).
+    key_file = Path.home() / ".claude" / "secrets" / "parallel_api_key.txt"
+    try:
+        return key_file.read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
+
+
+PARALLEL_API_KEY = _parallel_key()
 
 # ADK reads GOOGLE_API_KEY; mirror GEMINI_API_KEY into it so one key is enough.
 if GEMINI_API_KEY and not os.getenv("GOOGLE_API_KEY"):

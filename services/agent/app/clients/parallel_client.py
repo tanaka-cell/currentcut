@@ -2,15 +2,14 @@
 search calls. Every call passes the egress gate and writes EgressLog records
 before and after. Raw transcripts and restricted-label content never leave.
 
-Real API (docs.parallel.ai): POST {base}/v1/search, header `x-api-key`,
-body {objective, search_queries, mode, source_policy{after_date,...}}.
+Uses the official `parallel-web` SDK (contest Stage-1 checks verify official
+SDK imports): from parallel import Parallel; client.search.create(...).
 """
 from __future__ import annotations
 
 import re
 from urllib.parse import urlparse
 
-import httpx
 from pydantic import BaseModel
 
 from .. import config
@@ -122,31 +121,31 @@ class ParallelClient:
             ))
         return results
 
+    _sdk_client = None
+
     def _real_search(self, query: str, after_date: str | None) -> SearchResponse:
-        body: dict = {
+        from parallel import Parallel  # official SDK, imported lazily
+
+        if self._sdk_client is None:
+            type(self)._sdk_client = Parallel(api_key=config.PARALLEL_API_KEY)
+        kwargs: dict = {
             "objective": f"Verify for a TV news feature: {query}",
             "search_queries": [query],
             "mode": "basic",
         }
         if after_date:
-            body["source_policy"] = {"after_date": after_date}
-        r = httpx.post(
-            f"{config.PARALLEL_BASE_URL}/v1/search",
-            headers={"x-api-key": config.PARALLEL_API_KEY, "Content-Type": "application/json"},
-            json=body,
-            timeout=30,
-        )
-        r.raise_for_status()
-        data = r.json()
-        pages = [
-            SearchPage(
-                url=p.get("url", ""),
-                title=p.get("title", ""),
-                excerpt=" ".join(p.get("excerpts", [])) if p.get("excerpts") else p.get("excerpt", ""),
-                published_at=p.get("published_date", "") or p.get("publish_date", ""),
-            )
-            for p in data.get("pages", data.get("results", []))
-        ]
+            kwargs["advanced_settings"] = {"source_policy": {"after_date": after_date}}
+        result = self._sdk_client.search(**kwargs)
+        pages = []
+        for p in getattr(result, "results", None) or getattr(result, "pages", None) or []:
+            get = (lambda k, d="": getattr(p, k, None) or (p.get(k, d) if isinstance(p, dict) else d) or d)
+            excerpts = get("excerpts", [])
+            pages.append(SearchPage(
+                url=get("url"),
+                title=get("title"),
+                excerpt=" ".join(excerpts) if isinstance(excerpts, list) else str(excerpts),
+                published_at=get("published_date") or get("publish_date"),
+            ))
         return SearchResponse(pages=pages, provider="parallel")
 
     def _mock_search(self, query: str) -> SearchResponse:

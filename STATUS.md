@@ -31,7 +31,7 @@ _Last update: 2026-08-03 (Phase 0 + Phase 1 complete)_
 | Gemini text classification / claims | ✅ | ✅ |
 | Gemini TTS (demo assets) | ✅ | ✅ |
 | ADK orchestration (gemini-2.5-pro) | ✅ | ✅ "DONE 7 lines." — all 6 tools called in order |
-| Parallel Search API | ❌ no key yet | ❌ real client code written, UNTESTED — mock verified. Get key from hackathon portal / platform.parallel.ai |
+| Parallel Search API (official `parallel-web` SDK 1.1.0) | ✅ (`~/.claude/secrets/parallel_api_key.txt`) | ✅ 4 safe queries → 7–10 real web sources each; off-record query blocked & logged |
 | Google Cloud TTS narration | — | not started (Phase 5) |
 | Cloud Run deploy | — | not started (Phase 8) |
 
@@ -45,8 +45,9 @@ _Last update: 2026-08-03 (Phase 0 + Phase 1 complete)_
 
 ## Next (Phase 2–3)
 - [ ] Async job execution (Overnight Run as background task + progress endpoint)
-- [ ] Parallel real-key smoke test once key obtained
-- [ ] Claim-vs-evidence comparison via Gemini (replace numeric overlap heuristic)
+- [ ] **Claim-vs-evidence judging via Gemini** — current numeric-overlap heuristic
+      over-confirms (fictional demo claims got MULTIPLE_SOURCES_CONFIRMED from
+      loosely-related real pages). Known limitation, top priority.
 - [ ] Freshness Agent + ChangeEvent propagation (test 4)
 - [ ] Next.js console skeleton (Morning Dashboard from /report)
 
