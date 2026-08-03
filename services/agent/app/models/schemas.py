@@ -145,6 +145,27 @@ class ScriptLine(BaseModel):
     editorial_note: str = ""
 
 
+class TelopEntry(BaseModel):
+    """One row of a telop order sheet — what the station's telop operator types.
+
+    Finished 5–15 minute features are usually completed at the broadcaster on
+    the station's own telop system, so the deliverable from the director is the
+    *text*, on the programme's own order sheet, not a rendered graphic.
+    """
+    id: str = Field(default_factory=lambda: new_id("tlp"))
+    project_id: str
+    order: int = 0
+    script_line_id: str = ""
+    in_seconds: float = 0
+    out_seconds: float = 0
+    telop_type: str = "comment"  # name | data | comment | place | title
+    text_lines: list[str] = []   # one entry per displayed line
+    source_note: str = ""        # 出典表記 — required on data telops
+    evidence_status: EvidenceStatus = EvidenceStatus.EDITORIAL_LANGUAGE
+    caution: str = ""            # 備考: what the director must still settle
+    approved: bool = False
+
+
 class ChangeEvent(BaseModel):
     id: str = Field(default_factory=lambda: new_id("chg"))
     claim_id: str

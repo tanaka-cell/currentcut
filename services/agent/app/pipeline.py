@@ -13,13 +13,13 @@ from pathlib import Path
 from . import config
 from .agents import claims as claims_agent
 from .agents import confidentiality as conf_agent
-from .agents import footage_logger, research, scriptwriter
+from .agents import footage_logger, research, scriptwriter, telop
 from .agents import rough_cut as rough_cut_agent
 from .clients.gemini_client import gemini
 from .clients.parallel_client import parallel
 from .models.schemas import (
     AgentRun, Asset, Claim, Confidentiality, Project, ResearchResult, ScriptLine, Segment,
-    now_iso,
+    TelopEntry, now_iso,
 )
 from .storage import store
 
@@ -106,6 +106,17 @@ def step_script(project_id: str) -> list[ScriptLine]:
                    input_summary=f"{len(segments)} segments, {len(claims)} claims")
 
 
+def step_telops(project_id: str) -> list[TelopEntry]:
+    lines = store.list(project_id, "script_lines", ScriptLine)
+    segments = store.list(project_id, "segments", Segment)
+    claims = store.list(project_id, "claims", Claim)
+    research_results = store.list(project_id, "research_results", ResearchResult)
+    return _record(project_id, "telop_draft", gemini.provider,
+                   config.GEMINI_FAST_MODEL if not gemini.mock else "rule-layer",
+                   lambda: telop.draft_telops(project_id, lines, segments, claims, research_results),
+                   input_summary=f"{len(lines)} script lines")
+
+
 def step_rough_cut(project_id: str) -> dict:
     lines = store.list(project_id, "script_lines", ScriptLine)
     assets = store.list(project_id, "assets", Asset)
@@ -125,6 +136,7 @@ def run_overnight(project_id: str, video_paths: list[str] | None = None) -> dict
     step_claims(project_id)
     step_research(project_id)
     step_script(project_id)
+    step_telops(project_id)
     cut = step_rough_cut(project_id)
 
     project = store.get(project_id, "project", Project, project_id)

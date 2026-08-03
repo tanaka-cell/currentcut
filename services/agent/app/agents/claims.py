@@ -123,7 +123,7 @@ def extract_claims(project_id: str, segments: list[Segment]) -> list[Claim]:
                 safe_search_query=safe_query if searchable else None,
                 allow_external_search=searchable,
                 requires_human_approval=needs_human,
-                volatility_note="Speaker's own figure — no public source exists; attribute on screen"
+                volatility_note="自店の数字　公開データなし　話者の発言として表記"
                 if own_business else "",
             ))
     store.put_many(project_id, "claims", claims)

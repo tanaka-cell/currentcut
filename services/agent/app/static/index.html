@@ -100,6 +100,16 @@
       returns. Raw transcripts are never sent — only keyword queries built from public claims.</p>
     <div class="card scroll"><table id="egress"></table></div>
 
+    <h2>Telop order sheet</h2>
+    <p class="lede">A finished feature is usually captioned at the broadcaster on the
+      station's own telop system, so what the director hands over is the text. Figures that
+      were confirmed carry their attribution; figures that were not are flagged before
+      anyone sets them. <a id="csv" href="#" download>Download as CSV</a> — or upload your
+      programme's own telop sheet (.xlsx) and get it back filled in, formatting intact.</p>
+    <div class="card"><input type="file" id="tpl" accept=".xlsx,.xlsm">
+      <span id="tplmsg" class="src"></span></div>
+    <div class="card scroll"><table id="telops"></table></div>
+
     <h2>The cut</h2>
     <div class="card"><video id="cut" controls></video></div>
 
@@ -229,7 +239,48 @@ async function loadResults() {
     </tr>`).join('') + '</tbody>';
 
   if (cut.mp4) { $('#cut').src = `/media/${projectId}/rough_cut.mp4`; }
+
+  const TT = {name:'名前スーパー', data:'データ', comment:'コメントフォロー',
+              place:'場所スーパー', title:'タイトル'};
+  const telops = await fetch(`/projects/${projectId}/telops`).then(r=>r.json());
+  $('#csv').href = `/projects/${projectId}/telops.csv`;
+  $('#telops').innerHTML = `<thead><tr>
+      <th>No</th><th>IN / OUT</th><th>種別</th><th>表示文字</th><th>出典表記</th><th>備考</th>
+    </tr></thead><tbody>` +
+    telops.map(t => {
+      const [cls] = EV[t.evidence_status] || ['t-mute'];
+      return `<tr>
+        <td class="tc">${t.order}</td>
+        <td class="tc">${tcf(t.in_seconds)}<br>${tcf(t.out_seconds)}</td>
+        <td>${tag(cls, TT[t.telop_type] || t.telop_type)}</td>
+        <td>${(t.text_lines||[]).map(l=>esc(l)).join('<br>')}</td>
+        <td class="src">${esc(t.source_note || '')}</td>
+        <td class="src">${esc(t.caution || '')}</td>
+      </tr>`;
+    }).join('') + '</tbody>';
 }
+
+// 30fps drop-free timecode, the form a telop operator reads.
+const tcf = s => {
+  const t = Math.round(Math.max(0, s||0) * 30);
+  const p = n => String(n).padStart(2,'0');
+  return `${p(Math.floor(t/108000))}:${p(Math.floor(t/1800)%60)}:${p(Math.floor(t/30)%60)}:${p(t%30)}`;
+};
+
+$('#tpl').onchange = async e => {
+  const file = e.target.files[0];
+  if (!file || !projectId) return;
+  $('#tplmsg').textContent = 'Reading the sheet…';
+  const body = new FormData();
+  body.append('file', file);
+  const r = await fetch(`/projects/${projectId}/telop-template`, {method:'POST', body});
+  const d = await r.json();
+  if (!r.ok) { $('#tplmsg').textContent = d.detail || 'Could not read that sheet'; return; }
+  const cols = Object.entries(d.recognised_columns || {})
+    .map(([k,v]) => `${k}→${v}`).join(', ');
+  $('#tplmsg').innerHTML = `Recognised ${cols || 'nothing'} (headers on row ${d.header_row}). ` +
+    `<a href="/projects/${projectId}/telop-sheet.xlsx" download>Download the filled sheet</a>`;
+};
 </script>
 </body>
 </html>

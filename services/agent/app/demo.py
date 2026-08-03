@@ -22,6 +22,7 @@ STEPS = [
     ("claim_extraction", "Claim Extraction", "Pull out checkable, self-contained claims"),
     ("parallel_research", "Parallel Research", "Verify public claims on the live web"),
     ("scriptwriter", "Scriptwriter", "Write the source-linked script"),
+    ("telop_draft", "Telop Sheet", "Draft the captions the station will set"),
     ("rough_cut", "Rough Cut", "Cut the preview with FFmpeg"),
 ]
 

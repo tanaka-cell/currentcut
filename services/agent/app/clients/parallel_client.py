@@ -154,7 +154,7 @@ class ParallelClient:
         """Deterministic fake results keyed off the query so demos are stable."""
         results = {
             "店舗": SearchPage(
-                url="https://demo.currentcut.example/press/stores-2026",
+                url="https://demo.currentcut.example/corporate/ir/stores-2026",
                 title="スマートベントー社 公式: 全国店舗数のご案内",
                 excerpt="2026年8月現在、全国80店舗で展開しています。",
                 published_at="2026-07-15",
@@ -182,12 +182,23 @@ class ParallelClient:
             published_at="2026-08-01",
         )], provider="mock")
 
-    @staticmethod
-    def _source_type(url: str) -> str:
-        host = urlparse(url).netloc
-        if host.endswith(".go.jp") or host.endswith(".gov"):
+    # Press-release distributors and aggregators carry first-party text but are
+    # not themselves the source. Attributing an on-air figure to one of these
+    # would put the wrong name on screen.
+    _DISTRIBUTORS = ("prtimes.jp", "atpress.ne.jp", "value-press.com", "dreamnews.jp",
+                     "newscast.jp", "kyodonewsprwire.jp", "note.com", "ameblo.jp",
+                     "news.yahoo.co.jp", "news.google.com", "hatenablog.com")
+
+    @classmethod
+    def _source_type(cls, url: str) -> str:
+        host = urlparse(url).netloc.lower()
+        if host.endswith(".go.jp") or host.endswith(".gov") or host.endswith(".lg.jp"):
             return "government"
-        if "press" in url or "corporate" in url or "official" in host:
+        if any(host == d or host.endswith("." + d) for d in cls._DISTRIBUTORS):
+            return "web"
+        # First-party pages: the organisation's own site, its IR or newsroom.
+        path = urlparse(url).path.lower()
+        if any(seg in path for seg in ("/ir/", "/corporate/", "/company/", "/about/")):
             return "official"
         return "web"
 

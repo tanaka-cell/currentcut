@@ -3,13 +3,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel
 
 from . import adk_pipeline, config, demo, pipeline
+from .agents import telop_sheet
 from .models.schemas import (
     AgentRun, Asset, Claim, EgressLog, Project, ResearchResult, ScriptLine, Segment,
+    TelopEntry,
 )
 from .storage import store
 
@@ -111,6 +113,76 @@ def get_script(project_id: str):
         "claims": [c.model_dump() for c in store.list(project_id, "claims", Claim)],
         "sources": [r.model_dump() for r in store.list(project_id, "research_results", ResearchResult)],
     }
+
+
+@app.get("/projects/{project_id}/telops")
+def get_telops(project_id: str):
+    """Drafted telop entries — timecode, type, characters, source attribution."""
+    _require_project(project_id)
+    return [t.model_dump() for t in store.list(project_id, "telops", TelopEntry)]
+
+
+@app.get("/projects/{project_id}/telops.csv")
+def get_telops_csv(project_id: str):
+    _require_project(project_id)
+    entries = store.list(project_id, "telops", TelopEntry)
+    if not entries:
+        raise HTTPException(404, "no telops drafted yet")
+    path = telop_sheet.write_csv(entries, config.OUTPUT_DIR / project_id / "telops.csv")
+    return FileResponse(path, media_type="text/csv", filename="telop_sheet.csv")
+
+
+@app.post("/projects/{project_id}/telop-template")
+async def upload_telop_template(project_id: str, file: UploadFile = File(...)):
+    """Upload the programme's own telop order sheet (.xlsx).
+
+    Gemini reads the header row to work out what each column means; the drafted
+    telops are then written into a copy of that workbook, so the sheet keeps the
+    station's formatting and the telop operator gets the form they know.
+    """
+    _require_project(project_id)
+    if not (file.filename or "").lower().endswith((".xlsx", ".xlsm")):
+        raise HTTPException(400, "upload the programme's telop sheet as .xlsx")
+
+    project_dir = config.OUTPUT_DIR / project_id
+    project_dir.mkdir(parents=True, exist_ok=True)
+    template = project_dir / "telop_template.xlsx"
+    template.write_bytes(await file.read())
+
+    try:
+        mapping = telop_sheet.infer_mapping(template)
+    except Exception as exc:
+        raise HTTPException(422, str(exc))
+    (project_dir / "telop_mapping.json").write_text(
+        mapping.model_dump_json(indent=1), encoding="utf-8")
+    return {
+        "recognised_columns": mapping.columns,
+        "header_row": mapping.header_row,
+        "first_data_row": mapping.first_data_row,
+        "sheet": mapping.sheet_name,
+        "notes": mapping.notes,
+    }
+
+
+@app.get("/projects/{project_id}/telop-sheet.xlsx")
+def download_filled_sheet(project_id: str):
+    """The programme's own sheet, filled in."""
+    _require_project(project_id)
+    project_dir = config.OUTPUT_DIR / project_id
+    template = project_dir / "telop_template.xlsx"
+    mapping_file = project_dir / "telop_mapping.json"
+    if not template.exists() or not mapping_file.exists():
+        raise HTTPException(404, "upload the programme's telop sheet first")
+    entries = store.list(project_id, "telops", TelopEntry)
+    if not entries:
+        raise HTTPException(404, "no telops drafted yet")
+
+    mapping = telop_sheet.ColumnMapping.model_validate_json(
+        mapping_file.read_text(encoding="utf-8"))
+    out = telop_sheet.fill_sheet(template, mapping, entries, project_dir / "telop_sheet.xlsx")
+    return FileResponse(
+        out, filename="telop_sheet.xlsx",
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 
 @app.get("/projects/{project_id}/segments")

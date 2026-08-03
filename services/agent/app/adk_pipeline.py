@@ -24,7 +24,8 @@ THIS ORDER, each exactly once, passing the same project_id:
 3. extract_claims
 4. run_research
 5. write_script
-6. render_rough_cut
+6. draft_telops
+7. render_rough_cut
 Never skip confidentiality before research. After the final tool, reply with
 one short line: DONE <number of script lines> lines.
 """
@@ -88,6 +89,17 @@ def _tools(project_id_hint: str):
         lines = pipeline.step_script(project_id)
         return f"{len(lines)} script lines"
 
+    def draft_telops(project_id: str) -> str:
+        """Draft the telop order sheet the station's telop operator will type from.
+
+        Args:
+            project_id: The CurrentCut project id.
+        Returns:
+            Count of telop entries.
+        """
+        entries = pipeline.step_telops(project_id)
+        return f"{len(entries)} telop entries drafted"
+
     def render_rough_cut(project_id: str) -> str:
         """Render the rough-cut MP4 + SRT + EDL with FFmpeg.
 
@@ -100,7 +112,7 @@ def _tools(project_id_hint: str):
         return f"mp4={cut['mp4']} duration={cut['duration_seconds']}s"
 
     return [analyze_footage, classify_confidentiality, extract_claims,
-            run_research, write_script, render_rough_cut]
+            run_research, write_script, draft_telops, render_rough_cut]
 
 
 async def _run_adk_async(project_id: str) -> str:
