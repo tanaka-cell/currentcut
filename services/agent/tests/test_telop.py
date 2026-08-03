@@ -95,6 +95,20 @@ def test_fills_a_station_sheet_keeping_its_own_layout(overnight_run, tmp_path):
     assert first and str(first).strip(), "entries must be written into the sheet"
 
 
+def test_figures_are_never_broken_across_lines():
+    """"5万6000店" split as "5万600" / "0店" is a different number on screen."""
+    from app.agents.telop import _fit
+
+    for text in ["コンビニ 全国 5万6000店 手軽に飲める時代",
+                 "訪日外国人は356万人 過去最高を更新した",
+                 "この店は1日およそ100杯 10年で3割減"]:
+        lines = _fit(text)
+        for line in lines[:-1]:
+            assert not line[-1].isdigit(), f"a line ends mid-figure: {lines}"
+        for line in lines[1:]:
+            assert not line[0].isdigit() or "万" not in "".join(lines[:1]), lines
+
+
 def test_csv_fallback_when_no_template(overnight_run, tmp_path):
     from app.agents import telop_sheet
     from app.models.schemas import TelopEntry
