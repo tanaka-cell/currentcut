@@ -250,3 +250,48 @@ sidecars shared one entry — an English test shoot silently received the Japane
 shoot's transcripts, and the suite passed. The key now covers the sidecar in
 mock mode and the video model in real mode, so a model change is not served the
 previous model's reading either.
+
+## 2026-08-04 — D-026: The tool proposes an off-record boundary; a person sets it
+Reverting D-025's sibling change from earlier the same day. A segment that was
+only partly restricted was being split automatically, so the clean sentences
+went into the script and the marked one did not.
+
+That made the firewall **worse**, and the director on this team said so. Where an
+off-record remark begins and ends is a judgment about subject matter, and the
+spoken marker is not reliably at its edge:
+
+    「オフレコですが、来月2号店を出します。まだ発表前なんです。」
+
+The second sentence carries no marker and is plainly still off the record — the
+automatic split put it on air. The reverse case is just as common:
+「……という話でして。今のはオフレコで。」 marks the sentence *after* the material it
+covers, so splitting on the marker releases the very thing being protected.
+
+So the segment is held whole, as before, and the tool now:
+- proposes where it thinks the restricted part starts, sentence by sentence,
+  with timings apportioned by character count and flagged as estimates;
+- raises it in the morning report as a decision waiting on the director, saying
+  in as many words that nothing has been released;
+- releases only through `POST /projects/{id}/segments/{sid}/release`, which
+  requires a name — releasing someone's off-record remark is a person's decision
+  and a person's responsibility.
+
+The point is not to choose between losing the material and leaking it. It is to
+turn the question into one click for the person entitled to answer it.
+
+## 2026-08-04 — D-027: Nobody says "off the record" on cue
+The rule layer knew the formal marker and almost nothing else, so it heard
+「オフレコ」 and missed 「放送はしないでほしいんですけど」, 「今のはナシで」,
+「表には出さないで」, "please don't use that", "keep that out", "scratch that",
+"this stays between us".
+
+The pattern list is now deliberately broad in both languages, because the two
+errors do not cost the same: a false positive costs one review click, and a miss
+broadcasts something a person asked you not to. Tests cover both sides —
+ten phrasings per language that must fire, and ordinary shop talk that must not
+(「放送作家の仕事をしていました」, "the camera work was lovely", "we record
+everything on tape").
+
+Anything phrased in a way the list does not know still has to get past the Gemini
+layer, which can only make a label stricter — and its prompt now says outright
+that a polite request is still a request.

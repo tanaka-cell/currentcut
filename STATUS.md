@@ -127,13 +127,66 @@ carry no 出典 at all.
 Deployment note: `gcloud` credentials live per-machine. `gcloud auth login` as
 `fieldcasterjp@gmail.com` is a prerequisite; `deploy.sh` wraps the rest.
 
+## English shoot (2026-08-04): ✅ the judges can read the output
+
+The contest judges test in English, and the one button produced a Japanese
+script and a Japanese caption sheet. Two shoots now ship — `en` (a US coffee
+shop) and `ja` — with English the default. Every convention that differs by
+language lives in `app/lang.py`, keyed by the language of the footage.
+
+Measured on the English shoot, real APIs end to end:
+
+| Caption | Source | Note to the director |
+|---|---|---|
+| Small businesses employ almost half | `advocacy.sba.gov` | Data from 2023 SBA Office of Advocacy |
+| Federal minimum wage $7.25 an hour | `webapps.dol.gov` | |
+| Min wage unchanged since 2009 | `webapps.dol.gov` | effective July 24, 2009 |
+| over 150,000 convenience stores | — | Checked, but no primary source to credit |
+
+The last row is planted: only trade bodies publish that count, so the citation
+rule correctly declines to credit anyone.
+
+Four defects that only running it could have found — see D-021 to D-025:
+- **The confidentiality gate refused every honest English query.** It rejected
+  any 12-character run of the transcript: a clause in Japanese, a word and a half
+  in English. Three US public-record claims went unchecked while the Egress Log
+  reported a leak that had not happened.
+- **The extractor's prompt was all Japanese examples**, so an English shoot came
+  back with 「Harrow Bend Coffeeは1日に約200杯…」.
+- **CONFLICTING was inferred from "did not support"** — the fallacy that absence
+  of support is contradiction — and warned against a true line.
+- **The analysis cache keyed on the media hash alone**, so an English test shoot
+  silently received the Japanese transcripts and the suite passed.
+
+### Off-record boundaries: proposed, never taken (D-026, D-027)
+A first attempt split partly-restricted segments automatically. That made the
+firewall worse: 「オフレコですが、来月2号店を出します。まだ発表前なんです。」 has no
+marker on the second sentence, and the split put it in the script. The segment is
+now held whole; the tool proposes a boundary, raises it in the morning report
+("nothing has been released"), and releases only through an endpoint that
+requires a name.
+
+The pattern list also no longer assumes anyone says "off the record" on cue —
+「放送はしないでほしい」「今のはナシで」, "please don't use that", "scratch that",
+"keep that out" and about twenty more, in both languages, with tests that
+ordinary shop talk does not trip them.
+
+Tests: **96 passed**.
+
 ## Next
-1. **Speed.** A cold run is still dominated by Gemini watching four clips. Ship
-   the analysis cache in the image (hash-keyed, so it is caching rather than
-   faking — search, script and cut still run live).
-2. Volatility flags surfaced in the morning report UI
-3. Browser upload (footage paths are currently restricted to the bundled clips)
-4. English 3-minute demo video, submission package
+1. **Run-to-run variance is the biggest submission risk.** Three consecutive
+   English runs gave 0, 2 and 4 confirmed claims, and one produced almost
+   nothing because Gemini returned a 39-second interview as a single segment.
+   A judge presses the button once. Force per-utterance segmentation in the
+   footage logger, or split long segments in a second pass, and measure over
+   five runs before trusting it.
+2. **Speed.** A cold run is still dominated by Gemini watching four clips. Ship
+   the analysis cache in the image (now keyed on everything that determines the
+   answer, so it is caching rather than faking).
+3. Surface `held_awaiting_your_decision` in the web UI — the API and the report
+   carry it, the page does not show it yet.
+4. Browser upload (footage paths are currently restricted to the bundled clips)
+5. English 3-minute demo video, submission package
 
 ## Deployment notes
 - Project `clearslate-demo-2026`, region `asia-northeast1`, service `currentcut`
