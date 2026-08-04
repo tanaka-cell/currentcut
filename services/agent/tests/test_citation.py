@@ -129,7 +129,7 @@ def _telops_for(monkeypatch, results):
                       audio_text=seg.transcript, claim_ids=[claim.id],
                       evidence_status=claim.verification_status)
     # Condensing calls Gemini; the citation is what is under test, not the wording.
-    monkeypatch.setattr(telop, "_condense", lambda text, kind, style: text)
+    monkeypatch.setattr(telop, "_condense", lambda text, kind, style, language: text)
     entries = telop.draft_telops("prj_test", [line], [seg], [claim], results)
     return [e for e in entries if e.telop_type == "data"]
 

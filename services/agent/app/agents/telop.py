@@ -10,10 +10,12 @@ the speaker for a name super, the timecode from the footage, and — the part
 that is normally a separate chore — the source attribution for any number,
 because the claim was checked against a page in the first place.
 
-Japanese broadcast telop conventions applied here (all configurable):
-  - no 。 or 、 — separate phrases with a full-width space instead
-  - roughly 13 full-width characters per line, two lines at most
-  - a figure shown on screen carries its source in the same telop
+Caption conventions are not universal, and the ones this was built against are
+Japanese: thirteen full-width characters to a line, no 。 or 、, a 出典 column.
+An English-language lower third counts differently and reads differently. Every
+convention that differs lives in `app/lang.py`, keyed by the language of the
+shoot; what stays the same everywhere is that a figure on screen carries the
+source it was checked against, or says why it cannot.
 """
 from __future__ import annotations
 
@@ -21,6 +23,7 @@ import re
 
 from pydantic import BaseModel, Field
 
+from .. import lang
 from ..clients.gemini_client import gemini
 from . import evidence, house_style
 from ..models.schemas import (
@@ -28,27 +31,25 @@ from ..models.schemas import (
 )
 from ..storage import store
 
-MAX_CHARS_PER_LINE = 13
-MAX_LINES = 2
-
 # Only these statuses may appear as an on-screen assertion of fact.
 _AIRABLE_AS_FACT = (EvidenceStatus.PRIMARY_SOURCE_CONFIRMED,
                     EvidenceStatus.MULTIPLE_SOURCES_CONFIRMED)
 
 
 class _Condensed(BaseModel):
-    lines: list[str] = Field(description="Telop lines, no punctuation, <=13 full-width chars each")
+    lines: list[str] = Field(description="Caption lines, within the stated character limit")
 
 
-_CONDENSE_PROMPT = """You write on-screen telop text for Japanese factual television.
+_CONDENSE_PROMPT = """You write on-screen caption text for {audience}.
 Condense the material below into at most {max_lines} lines of at most
-{max_chars} full-width characters each.
+{max_chars} characters each.
 
 Rules:
-- Never use 。 or 、. Separate phrases with a full-width space instead.
+{caption_rules}
 - Keep numbers and proper nouns exactly as given; never invent or round them.
 - Drop filler and honorific padding; keep it readable at a glance.
 - If it cannot be said within the limit, shorten the wording, not the facts.
+- Write in the same language as the material.
 
 {house_style}
 Type of telop: {telop_type}
@@ -68,7 +69,12 @@ def draft_telops(project_id: str, lines: list[ScriptLine], segments: list[Segmen
     # aired, if the director has supplied any.
     style = house_style.load(project_id)
     style_block = house_style.as_prompt_block(style)
-    credit_format = (style.source_credit_format if style else "") or "出典 ◯◯"
+    # The shoot decides the conventions. A thirteen-character line and a 出典
+    # column are Japanese broadcast practice, not universal ones.
+    language = lang.of_segments(segments)
+    max_chars = lang.CAPTION_LIMITS[language]["max_chars"]
+    credit_format = ((style.source_credit_format if style else "")
+                     or lang.CREDIT_FORMAT[language])
 
     entries: list[TelopEntry] = []
     named: set[str] = set()  # a speaker is supered once, not on every line
@@ -78,13 +84,13 @@ def draft_telops(project_id: str, lines: list[ScriptLine], segments: list[Segmen
             continue
         for entry in _entries_for_line(project_id, line, seg, claim_by_id,
                                        research_by_claim, named, style_block,
-                                       credit_format):
+                                       credit_format, language):
             entry.order = len(entries) + 1
             # Nothing is silently truncated, so an over-long line is surfaced
             # for the director to shorten rather than hidden.
             longest = max((len(l) for l in entry.text_lines), default=0)
-            if longest > MAX_CHARS_PER_LINE:
-                note = f"{longest}字　1行{MAX_CHARS_PER_LINE}字に収まらない　要short"
+            if longest > max_chars:
+                note = lang.too_long(language, longest, max_chars)
                 entry.caution = f"{entry.caution}／{note}" if entry.caution else note
             entries.append(entry)
 
@@ -97,7 +103,8 @@ def _entries_for_line(project_id: str, line: ScriptLine, seg: Segment,
                       claim_by_id: dict[str, Claim],
                       research_by_claim: dict[str, list[ResearchResult]],
                       named: set[str], style_block: str = "",
-                      credit_format: str = "出典 ◯◯") -> list[TelopEntry]:
+                      credit_format: str = "出典 ◯◯",
+                      language: str = lang.JA) -> list[TelopEntry]:
     out: list[TelopEntry] = []
 
     # Name super: on the speaker's first appearance only. Re-supering someone on
@@ -108,9 +115,9 @@ def _entries_for_line(project_id: str, line: ScriptLine, seg: Segment,
             project_id=project_id, script_line_id=line.id,
             in_seconds=line.start_seconds, out_seconds=min(line.start_seconds + 5, line.end_seconds),
             telop_type="name",
-            text_lines=_fit(seg.speaker),
+            text_lines=_fit(seg.speaker, language),
             evidence_status=EvidenceStatus.FOOTAGE_CONFIRMED,
-            caution="屋号・肩書の表記を本人に確認",
+            caution=lang.name_super_check(language),
         ))
 
     # Place super for establishing shots.
@@ -119,7 +126,8 @@ def _entries_for_line(project_id: str, line: ScriptLine, seg: Segment,
             project_id=project_id, script_line_id=line.id,
             in_seconds=line.start_seconds, out_seconds=min(line.start_seconds + 4, line.end_seconds),
             telop_type="place",
-            text_lines=_fit(_condense(seg.visual_summary, "place super", style_block)),
+            text_lines=_fit(_condense(seg.visual_summary, "place super", style_block, language),
+                            language),
             evidence_status=EvidenceStatus.FOOTAGE_CONFIRMED,
         ))
 
@@ -140,16 +148,15 @@ def _entries_for_line(project_id: str, line: ScriptLine, seg: Segment,
             else:
                 backers = evidence.supporting_domains(results)
                 source_note = ""
-                caution = (f"裏付けあり　一次情報なし（{'　'.join(backers)}）"
-                           "　公式発表を確認して出典表記" if backers else
-                           "裏付けあり　一次情報なし　公式発表を確認して出典表記")
+                caution = lang.no_primary_source(language, backers)
                 if claim.volatility_note:
                     caution = f"{caution}／{claim.volatility_note}"
             out.append(TelopEntry(
                 project_id=project_id, script_line_id=line.id,
                 in_seconds=line.start_seconds, out_seconds=line.end_seconds,
                 telop_type="data",
-                text_lines=_fit(_condense(claim.claim_text, "data telop", style_block)),
+                text_lines=_fit(_condense(claim.claim_text, "data telop", style_block, language),
+                                language),
                 source_note=source_note,
                 evidence_status=claim.verification_status,
                 caution=caution,
@@ -159,19 +166,20 @@ def _entries_for_line(project_id: str, line: ScriptLine, seg: Segment,
                 project_id=project_id, script_line_id=line.id,
                 in_seconds=line.start_seconds, out_seconds=line.end_seconds,
                 telop_type="data",
-                text_lines=_fit(_condense(claim.claim_text, "data telop", style_block)),
+                text_lines=_fit(_condense(claim.claim_text, "data telop", style_block, language),
+                                language),
                 evidence_status=claim.verification_status,
-                caution="⚠この数字のまま出さない　公開情報と食い違い　要確認",
+                caution=lang.conflicting(language),
             ))
         else:
             out.append(TelopEntry(
                 project_id=project_id, script_line_id=line.id,
                 in_seconds=line.start_seconds, out_seconds=line.end_seconds,
                 telop_type="data",
-                text_lines=_fit(_condense(claim.claim_text, "data telop", style_block)),
+                text_lines=_fit(_condense(claim.claim_text, "data telop", style_block, language),
+                                language),
                 evidence_status=claim.verification_status,
-                caution=claim.volatility_note
-                or "裏付けなし　話者の発言として出すか　数字を外す",
+                caution=claim.volatility_note or lang.unbacked(language),
             ))
 
     # Comment follow: the quoted line itself.
@@ -180,18 +188,24 @@ def _entries_for_line(project_id: str, line: ScriptLine, seg: Segment,
             project_id=project_id, script_line_id=line.id,
             in_seconds=line.start_seconds, out_seconds=line.end_seconds,
             telop_type="comment",
-            text_lines=_fit(_condense(line.audio_text, "comment follow", style_block)),
+            text_lines=_fit(_condense(line.audio_text, "comment follow", style_block, language),
+                            language),
             evidence_status=EvidenceStatus.FOOTAGE_CONFIRMED,
         ))
     return out
 
 
-def _condense(material: str, telop_type: str, style_block: str = "") -> str:
+def _condense(material: str, telop_type: str, style_block: str = "",
+              language: str = lang.JA) -> str:
     if gemini.mock or not material.strip():
-        return _strip_punctuation(material)
+        return _strip_punctuation(material, language)
     try:
+        limits = lang.CAPTION_LIMITS[language]
         result = gemini.structured(
-            _CONDENSE_PROMPT.format(max_lines=MAX_LINES, max_chars=MAX_CHARS_PER_LINE,
+            _CONDENSE_PROMPT.format(max_lines=limits["max_lines"],
+                                    max_chars=limits["max_chars"],
+                                    audience=lang.CAPTION_AUDIENCE[language],
+                                    caption_rules=lang.CAPTION_RULES[language],
                                     telop_type=telop_type, material=material,
                                     house_style=style_block),
             _Condensed,
@@ -200,12 +214,21 @@ def _condense(material: str, telop_type: str, style_block: str = "") -> str:
             return "\n".join(result.lines)
     except Exception:
         pass
-    return _strip_punctuation(material)
+    return _strip_punctuation(material, language)
 
 
-def _strip_punctuation(text: str) -> str:
-    """Telops do not carry 。 or 、; phrases are separated by a full-width space."""
-    return re.sub(r"[、。]+", "　", text).strip("　 ")
+def _strip_punctuation(text: str, language: str = lang.JA) -> str:
+    """A Japanese telop carries no 。 or 、 — phrases are separated by a full-width
+    space instead. An English lower third keeps its commas and loses only the
+    full stop that would otherwise end it."""
+    if language == lang.JA:
+        return re.sub(r"[、。]+", "　", text).strip("　 ")
+    return re.sub(r"\s*\.\s*$", "", text.strip())
+
+
+def _sep(language: str) -> str:
+    """What sits between two phrases sharing a line."""
+    return "　" if language == lang.JA else " "
 
 
 # A telop must never break inside a figure: "5万600" / "0店" on two lines is a
@@ -227,27 +250,29 @@ def _tokens(text: str) -> list[str]:
     return [t for t in out if t != ""]
 
 
-def _wrap(text: str) -> list[str]:
-    """Break at phrase boundaries first. We separate phrases with a full-width
-    space, so those are the natural break points; breaking mid-phrase is a last
-    resort for a phrase that is itself too long."""
+def _wrap(text: str, language: str = lang.JA) -> list[str]:
+    """Break at phrase boundaries first — those are the natural break points in
+    both conventions. Breaking mid-phrase is a last resort for a phrase that is
+    itself too long for one line."""
+    max_chars = lang.CAPTION_LIMITS[language]["max_chars"]
+    sep = _sep(language)
     phrases = [p for p in re.split(r"[　 ]+", text) if p]
     lines: list[str] = []
     current = ""
     for phrase in phrases:
-        candidate = f"{current}　{phrase}" if current else phrase
-        if len(candidate) <= MAX_CHARS_PER_LINE:
+        candidate = f"{current}{sep}{phrase}" if current else phrase
+        if len(candidate) <= max_chars:
             current = candidate
             continue
         if current:
             lines.append(current)
             current = ""
-        if len(phrase) <= MAX_CHARS_PER_LINE:
+        if len(phrase) <= max_chars:
             current = phrase
         else:
             chunks, chunk = [], ""
             for token in _tokens(phrase):
-                if chunk and len(chunk) + len(token) > MAX_CHARS_PER_LINE:
+                if chunk and len(chunk) + len(token) > max_chars:
                     chunks.append(chunk)
                     chunk = token
                 else:
@@ -261,15 +286,16 @@ def _wrap(text: str) -> list[str]:
     return lines or [""]
 
 
-def _fit(text: str) -> list[str]:
+def _fit(text: str, language: str = lang.JA) -> list[str]:
     """Wrap to the line limit. Never drop characters — an over-long telop is a
     decision for the director, so the overflow stays visible in the last line."""
-    text = _strip_punctuation(text)
+    text = _strip_punctuation(text, language)
     if "\n" in text:
         candidate = [l.strip() for l in text.split("\n") if l.strip()]
     else:
-        candidate = _wrap(text)
-    if len(candidate) <= MAX_LINES:
+        candidate = _wrap(text, language)
+    max_lines = lang.CAPTION_LIMITS[language]["max_lines"]
+    if len(candidate) <= max_lines:
         return candidate
-    head = candidate[:MAX_LINES - 1]
-    return head + ["　".join(candidate[MAX_LINES - 1:])]
+    head = candidate[:max_lines - 1]
+    return head + [_sep(language).join(candidate[max_lines - 1:])]

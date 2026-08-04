@@ -70,6 +70,25 @@ class Asset(BaseModel):
     uploaded_at: str = Field(default_factory=now_iso)
 
 
+class ProposedRelease(BaseModel):
+    """One sentence of a held segment, with the tool's reading of it.
+
+    A proposal, never an action. Where an off-record remark begins and ends is a
+    judgment about subject matter, and the spoken marker is not reliably at its
+    edge —「オフレコですが、来月2号店を出します。まだ発表前なんです。」 has no marker
+    on the second sentence and is plainly still off the record. So the tool
+    shows its reading and the director decides; nothing is released until they
+    confirm it.
+    """
+    text: str
+    start_seconds: float = 0
+    end_seconds: float = 0
+    proposed_label: "Confidentiality" = Confidentiality.PUBLIC
+    # Sentence boundaries inside a segment have no timecode of their own, so
+    # these are apportioned by character count. A director nudges them.
+    timing_is_estimated: bool = True
+
+
 class Segment(BaseModel):
     id: str = Field(default_factory=lambda: new_id("seg"))
     asset_id: str
@@ -84,6 +103,11 @@ class Segment(BaseModel):
     confidentiality_reason: str = ""
     allow_script_use: bool = False
     allow_external_search: bool = False
+    # Only set on a held segment that looks partly usable: the tool's reading of
+    # where the restricted part starts, for a director to confirm. Carries no
+    # authority — see ProposedRelease.
+    release_proposal: list[ProposedRelease] = []
+    release_confirmed_by: str = ""  # who settled the boundary, if anyone has
 
 
 class Verifiability(str, Enum):
@@ -155,6 +179,9 @@ class ResearchResult(BaseModel):
     # Year the figure describes, per the source. A 2014 store count is a real
     # figure and a true match, but it does not confirm what is true on air day.
     value_as_of_year: int = 0
+    # The source makes the claim false — not merely "did not support it".
+    # Inferring one from the other put a broadcast warning on a true line.
+    contradicts_claim: bool = False
     judgment_reason: str = ""
     confidence: float = 0
     retrieved_at: str = Field(default_factory=now_iso)

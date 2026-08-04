@@ -1,0 +1,58 @@
+{
+ "segments": [
+  {
+   "start_seconds": 0.5,
+   "end_seconds": 6.55,
+   "speaker": "Owner, Harrow Bend Coffee",
+   "transcript": "My father opened this place in nineteen seventy-eight, and I have been behind this counter for twenty-two years.",
+   "visual_summary": "Interview with the owner across the counter, medium shot from the chest up",
+   "shot_type": "interview",
+   "usability_score": 0.85
+  },
+  {
+   "start_seconds": 7.05,
+   "end_seconds": 11.86,
+   "speaker": "Owner, Harrow Bend Coffee",
+   "transcript": "Small businesses like this one employ almost half of the private workforce in this country.",
+   "visual_summary": "Interview with the owner across the counter, medium shot from the chest up",
+   "shot_type": "interview",
+   "usability_score": 0.85
+  },
+  {
+   "start_seconds": 12.36,
+   "end_seconds": 19.53,
+   "speaker": "Owner, Harrow Bend Coffee",
+   "transcript": "We pay the federal minimum wage here, seven dollars and twenty-five cents an hour. It has not changed since two thousand nine.",
+   "visual_summary": "Interview with the owner across the counter, medium shot from the chest up",
+   "shot_type": "interview",
+   "usability_score": 0.85
+  },
+  {
+   "start_seconds": 20.03,
+   "end_seconds": 25.92,
+   "speaker": "Owner, Harrow Bend Coffee",
+   "transcript": "There are more than a hundred and fifty thousand convenience stores in this country now, and nearly all of them sell coffee.",
+   "visual_summary": "Interview with the owner across the counter, medium shot from the chest up",
+   "shot_type": "interview",
+   "usability_score": 0.85
+  },
+  {
+   "start_seconds": 26.42,
+   "end_seconds": 31.15,
+   "speaker": "Owner, Harrow Bend Coffee",
+   "transcript": "We do about two hundred cups a day. Ten years ago it was closer to three hundred.",
+   "visual_summary": "Interview with the owner across the counter, medium shot from the chest up",
+   "shot_type": "interview",
+   "usability_score": 0.85
+  },
+  {
+   "start_seconds": 31.65,
+   "end_seconds": 38.99,
+   "speaker": "Owner, Harrow Bend Coffee",
+   "transcript": "Off the record, we are signing a lease on a second location next month. It has not been announced, so please do not use that on air.",
+   "visual_summary": "Interview with the owner across the counter, medium shot from the chest up",
+   "shot_type": "interview",
+   "usability_score": 0.85
+  }
+ ]
+}

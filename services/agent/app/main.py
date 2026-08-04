@@ -8,10 +8,10 @@ from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel
 
 from . import adk_pipeline, config, demo, pipeline
-from .agents import house_style, telop_form, telop_sheet
+from .agents import confidentiality, house_style, telop_form, telop_sheet
 from .models.schemas import (
-    AgentRun, Asset, Claim, EgressLog, Project, ResearchResult, ScriptLine, Segment,
-    TelopEntry,
+    AgentRun, Asset, Claim, EgressLog, Project, RESTRICTED_LABELS, ResearchResult,
+    ScriptLine, Segment, TelopEntry,
 )
 from .storage import store
 
@@ -26,12 +26,24 @@ def index():
 
 
 @app.post("/api/demo/start")
-def demo_start():
-    """Start a real overnight run on the bundled demo footage."""
+def demo_start(shoot: str = ""):
+    """Start a real overnight run on the bundled demo footage.
+
+    `shoot` picks which shoot to run — see config.DEMO_SHOOTS. Omitted, it runs
+    the English one, because that is what a visitor will be reading.
+    """
     try:
-        return {"project_id": demo.start()}
+        return {"project_id": demo.start(shoot)}
     except Exception as exc:
         raise HTTPException(500, str(exc))
+
+
+@app.get("/api/demo/shoots")
+def demo_shoots():
+    return {"default": config.DEFAULT_DEMO_SHOOT,
+            "shoots": [{"id": s, "title": demo.SHOOT_TITLES.get(s, s),
+                        "clips": len(demo.demo_clips(s))}
+                       for s in config.DEMO_SHOOTS]}
 
 
 @app.get("/api/demo/status/{project_id}")
@@ -330,6 +342,43 @@ def correct_house_style(project_id: str, body: house_style.HouseStyle):
     body.confirmed_by_director = True
     store.put(project_id, "house_style", body)
     return body.model_dump()
+
+
+class ReleaseBody(BaseModel):
+    release_indexes: list[int]
+    confirmed_by: str
+
+
+@app.post("/projects/{project_id}/segments/{segment_id}/release")
+def confirm_release(project_id: str, segment_id: str, body: ReleaseBody):
+    """Settle where an off-record remark starts, and release the rest.
+
+    The only route by which held material becomes usable. It takes a name
+    because releasing someone's off-record remark is a person's decision and a
+    person's responsibility — the tool proposes a boundary and will not act on
+    its own proposal.
+    """
+    _require_project(project_id)
+    if not body.confirmed_by.strip():
+        raise HTTPException(400, "confirmed_by is required: a person has to own this decision")
+    segment = store.get(project_id, "segments", Segment, segment_id)
+    if segment is None:
+        raise HTTPException(404, "no such segment")
+    try:
+        pieces = confidentiality.confirm_release(
+            project_id, segment, body.release_indexes, body.confirmed_by.strip())
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    # The script and everything downstream of it were built without this
+    # material; rebuild them so the release actually reaches the cut.
+    pipeline.step_script(project_id)
+    pipeline.step_telops(project_id)
+    cut = pipeline.step_rough_cut(project_id)
+    return {"released": [p.model_dump() for p in pieces
+                         if p.confidentiality not in RESTRICTED_LABELS],
+            "still_held": [p.model_dump() for p in pieces
+                           if p.confidentiality in RESTRICTED_LABELS],
+            "report": pipeline.morning_report(project_id, cut)}
 
 
 @app.get("/projects/{project_id}/segments")

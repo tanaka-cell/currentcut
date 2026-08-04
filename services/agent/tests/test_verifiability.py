@@ -289,6 +289,36 @@ def test_a_decade_old_figure_does_not_confirm_a_present_tense_claim(monkeypatch)
     assert claim.recheck_before_lock is True
 
 
+def test_failing_to_support_is_not_contradicting(monkeypatch):
+    """"The federal minimum wage has not changed since 2009" is true, and the
+    Department of Labor's own page states the history as "1938 - 2009". Reading
+    "matched the subject but did not support" as a contradiction put
+    "do not use this figure as spoken" on a correct line."""
+    from app.agents.evidence import EvidenceJudgment
+    from app.models.schemas import ResearchResult
+
+    claim = _research_with(
+        monkeypatch,
+        [EvidenceJudgment(entity_match=True, attribute_match=True, value_match=False,
+                          contradicts_claim=False, source_value="1938 - 2009",
+                          reason="states the history, not the claim")],
+        [ResearchResult(claim_id="", source_url="https://www.dol.gov/history")])
+    assert claim.verification_status.value != "CONFLICTING"
+
+
+def test_a_genuine_contradiction_is_still_flagged(monkeypatch):
+    from app.agents.evidence import EvidenceJudgment
+    from app.models.schemas import ResearchResult
+
+    claim = _research_with(
+        monkeypatch,
+        [EvidenceJudgment(entity_match=True, attribute_match=True, value_match=False,
+                          contradicts_claim=True, source_value="61,000",
+                          reason="the official count is higher")],
+        [ResearchResult(claim_id="", source_url="https://www.stat.go.jp/a")])
+    assert claim.verification_status.value == "CONFLICTING"
+
+
 def test_a_recent_figure_still_confirms(monkeypatch):
     from datetime import datetime, timezone
 

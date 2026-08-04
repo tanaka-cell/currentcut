@@ -1,0 +1,22 @@
+{
+ "segments": [
+  {
+   "start_seconds": 0.5,
+   "end_seconds": 4.59,
+   "speaker": "Regular customer",
+   "transcript": "You can taste the difference when somebody actually makes it by hand.",
+   "visual_summary": "Interview with a regular at the counter, coffee cup in frame",
+   "shot_type": "reaction",
+   "usability_score": 0.85
+  },
+  {
+   "start_seconds": 5.09,
+   "end_seconds": 8.1,
+   "speaker": "Regular customer",
+   "transcript": "A lot of the shops along this street have closed up.",
+   "visual_summary": "Interview with a regular at the counter, coffee cup in frame",
+   "shot_type": "reaction",
+   "usability_score": 0.85
+  }
+ ]
+}

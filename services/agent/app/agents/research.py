@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from .. import config
+from .. import config, lang
 from ..clients.parallel_client import EgressBlocked, parallel
 from ..models.schemas import Claim, EvidenceStatus, ResearchResult, Segment, now_iso
 from ..storage import store
@@ -22,6 +22,7 @@ def research_claims(
     after_date: str | None = None,
 ) -> list[ResearchResult]:
     seg_by_id = {s.id: s for s in segments}
+    language = lang.of_segments(segments)
     all_results: list[ResearchResult] = []
 
     for claim in claims:
@@ -49,6 +50,7 @@ def research_claims(
             r.source_value = judgment.source_value
             r.dated_qualifier = judgment.dated_qualifier
             r.value_as_of_year = judgment.value_as_of_year
+            r.contradicts_claim = judgment.contradicts_claim
             r.judgment_reason = judgment.reason
             # The model's opinion is recorded, never acted on. Asked whether a
             # source is primary it said yes for 7andi's own IR page (right), and
@@ -84,8 +86,7 @@ def research_claims(
         qualifiers = [r.dated_qualifier for r in results if r.dated_qualifier]
         if not current and stale:
             years = sorted({r.value_as_of_year for r in stale if r.value_as_of_year})
-            claim.volatility_note = (
-                f"数字は合うが出典が古い（{years[0]}年の数値）　最新の公表値を確認")
+            claim.volatility_note = lang.stale_evidence(language, years[0])
             claim.recheck_before_lock = True
         elif qualifiers:
             claim.volatility_note = qualifiers[0]
@@ -114,8 +115,15 @@ def _is_stale(result: ResearchResult) -> bool:
 
 
 def _conflicting(claim: Claim, results: list[ResearchResult]) -> bool:
-    """A conflict is a source about the SAME subject and the SAME attribute that
-    states a different value. A page that merely happens to contain a number is
-    not a conflict — it is noise."""
-    return any(r.entity_match and r.attribute_match and r.source_value
-               and not r.supports_claim for r in results)
+    """A conflict is a source that makes the claim FALSE.
+
+    This used to be inferred from "matched the subject and attribute but did not
+    support" — which is the fallacy that absence of support is contradiction. It
+    put 「Do not use this figure as spoken」 on "the federal minimum wage has not
+    changed since 2009", because the Department of Labor's page states the
+    history as "1938 - 2009" and that is not the string 2009. Telling a director
+    to drop a true line is as damaging as letting a false one through, so the
+    comparator is now asked the question directly.
+    """
+    return any(r.contradicts_claim and r.entity_match and r.attribute_match
+               for r in results)

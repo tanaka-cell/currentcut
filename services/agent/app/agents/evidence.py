@@ -37,6 +37,7 @@ class EvidenceJudgment(BaseModel):
     attribute_match: bool = Field(description="Does the source discuss the same attribute (price, store count, ...)?")
     value_match: bool = Field(description="Does the value in the source equal the value in the claim?")
     source_value: str = Field(default="", description="The value stated by the source, verbatim, or empty")
+    contradicts_claim: bool = Field(default=False, description="Does the source state something that makes the claim FALSE?")
     source_is_primary: bool = Field(default=False, description="Official/first-party/government source rather than commentary")
     dated_qualifier: str = Field(default="", description="Any expiry, validity period or scheduled change stated in the source; empty if none")
     value_as_of_year: int = Field(default=0, description="Year the source's figure describes (not the publication year); 0 if not stated")
@@ -66,6 +67,14 @@ _RULES = """Answer for each source:
   If the source discusses the right subject and attribute but the excerpt never
   states a figure, value_match is false — do not infer it.
 - source_value: the value the source states, verbatim ("" if none).
+- contradicts_claim: true ONLY if the source states something that makes the
+  claim FALSE — the same subject and attribute with a genuinely different value.
+  Failing to support is NOT contradicting. A source that gives a range, a
+  history, a related figure, or simply does not address the point is not a
+  contradiction: "the federal minimum wage has been $7.25 since 2009" is not
+  contradicted by a page listing "1938 - 2009" as the history of the rate.
+  When in doubt, false — telling a director not to broadcast a true line is as
+  damaging as letting a false one through.
 - source_is_primary: true only for the subject's own official page, an IR/press
   release, or a government/public statistics source.
 - dated_qualifier: ONLY when the source limits how long this value stays true,

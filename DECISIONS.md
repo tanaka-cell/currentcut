@@ -188,3 +188,65 @@ before — every spoken line was dropped and the script came out with no narrati
 at all, while still looking structurally complete. It is now keyed on the segment
 having a transcript. On-screen text goes to `visual_summary`, so a transcript
 means someone spoke; shot type governs ordering only.
+
+## 2026-08-04 — D-021: English first, because that is who is judging
+The contest judges test in English. Until now a visitor pressed the one button
+and got a Japanese script and a Japanese caption sheet — the output they were
+being asked to evaluate was output they could not read.
+
+Two shoots now ship, `en` (a US coffee shop) and `ja` (a Japanese one), telling
+the same story. English is the default. The Japanese one stays, and not out of
+sentiment: the caption order sheet answers a real Japanese newsroom's problem,
+and it is the evidence that this is a tool rather than a demo. Dropping it would
+drop the strongest thing about the idea.
+
+Everything that differs by language now lives in `app/lang.py`, keyed by the
+language of the footage — the shoot decides, not a setting somebody has to
+remember. Caption limits (13 full-width characters vs about 32), the phrase
+separator, punctuation rules, every note the director reads, the credit format,
+and the examples given to the claim extractor.
+
+## 2026-08-04 — D-022: The confidentiality gate was measuring the wrong thing
+The egress gate rejects a query carrying a verbatim span of what someone said.
+It measured that span as **12 characters**, which is a clause in Japanese —
+「全国におよそ五万六千店」 is exactly 12. In English it is a word and a half:
+"federal minim" is 13 characters, so every honest keyword query about what the
+speaker had just said was refused. Three US public-record claims went unchecked
+on the first English run, and the Egress Log recorded a transcript leak that had
+not happened.
+
+The unit now follows the language: characters where there are no word boundaries
+to use, and **five consecutive words** where there are. Five words in a row is a
+quotation; two or three is the subject matter. This loosens a security-relevant
+rule, so the tests pin both directions — a quoted English sentence is still
+refused, and the Japanese behaviour is unchanged.
+
+Worth recording as a general lesson: a safety rule tuned on one language quietly
+became a denial-of-service against the product's main feature on another, and it
+reported itself as working correctly the whole time.
+
+## 2026-08-04 — D-023: Prompt examples move with the shoot
+The claim extractor's prompt carried Japanese examples throughout. On an English
+shoot the model followed the examples rather than the instruction to match the
+transcript, and the caption sheet came back with
+「Harrow Bend Coffeeは1日に約200杯のコーヒーを販売している」. The examples are now
+selected by language (`lang.CLAIM_EXAMPLES`). An instruction competing with a
+page of counter-examples loses.
+
+## 2026-08-04 — D-024: Failing to support is not contradicting
+"The federal minimum wage has not changed since 2009" is true, and the
+Department of Labor's own page states the history as "1938 - 2009". CONFLICTING
+was inferred from "matched the subject and attribute but did not support",
+which is the fallacy that absence of support is contradiction — so the sheet
+carried "do not use this figure as spoken" against a correct line. Telling a
+director to drop a true line is as damaging as letting a false one through. The
+comparator is now asked directly whether a source makes the claim false, and
+told to answer false when unsure.
+
+## 2026-08-04 — D-025: The analysis cache must key on what produced the answer
+It keyed on the media hash alone. In mock mode the reading comes from the
+`.analysis.json` sidecar, so two clips with identical video and different
+sidecars shared one entry — an English test shoot silently received the Japanese
+shoot's transcripts, and the suite passed. The key now covers the sidecar in
+mock mode and the video model in real mode, so a model change is not served the
+previous model's reading either.

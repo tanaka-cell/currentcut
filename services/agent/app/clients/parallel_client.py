@@ -12,7 +12,7 @@ from urllib.parse import urlparse
 
 from pydantic import BaseModel
 
-from .. import config
+from .. import config, lang
 from ..models.schemas import Claim, Confidentiality, EgressLog, ResearchResult, Segment, RESTRICTED_LABELS
 from ..storage import store
 
@@ -49,13 +49,10 @@ def egress_check(claim: Claim, segment: Segment, query: str) -> tuple[bool, str]
         return False, "claim requires human approval before external search"
     if not query or len(query) > 160:
         return False, "query missing or too long"
-    # The safe query must not smuggle raw transcript sentences out:
-    # reject if any 12+ char run of the raw transcript appears in the query.
-    nq, nt = _norm(query), _norm(segment.transcript)
-    if len(nt) >= 12:
-        for i in range(0, len(nt) - 11):
-            if nt[i:i + 12] in nq:
-                return False, "query contains raw transcript text"
+    # The safe query must not smuggle a verbatim span of the transcript out.
+    # What counts as a span differs by language — see lang.quotes_transcript.
+    if lang.quotes_transcript(query, segment.transcript):
+        return False, "query contains raw transcript text"
     return True, "ok"
 
 
@@ -203,12 +200,33 @@ class ParallelClient:
     # would put the wrong name on screen.
     _DISTRIBUTORS = ("prtimes.jp", "atpress.ne.jp", "value-press.com", "dreamnews.jp",
                      "newscast.jp", "kyodonewsprwire.jp", "note.com", "ameblo.jp",
-                     "news.yahoo.co.jp", "news.google.com", "hatenablog.com")
+                     "news.yahoo.co.jp", "news.google.com", "hatenablog.com",
+                     # English-language equivalents: wire services that carry
+                     # first-party text without being the source of it.
+                     "prnewswire.com", "businesswire.com", "globenewswire.com",
+                     "einpresswire.com", "medium.com", "substack.com",
+                     "reddit.com", "quora.com")
+
+    # Public-authority domains that are reserved by registration, so the suffix
+    # alone is proof. Kept to suffixes that cannot be bought: .gov and .go.jp
+    # are restricted registries, and a shoot in one country routinely cites
+    # another's statistics office, so the whole list applies everywhere.
+    _GOVERNMENT_SUFFIXES = (
+        ".gov", ".mil",                       # United States
+        ".go.jp", ".lg.jp",                   # Japan
+        ".gov.uk", ".nhs.uk", ".parliament.uk",  # United Kingdom
+        ".gc.ca", ".canada.ca",               # Canada
+        ".gov.au",                            # Australia
+        ".govt.nz",                           # New Zealand
+        ".gov.ie",                            # Ireland
+        ".europa.eu",                         # European Union
+        ".un.org", ".who.int", ".oecd.org",   # intergovernmental
+    )
 
     @classmethod
     def _source_type(cls, url: str) -> str:
         host = urlparse(url).netloc.lower()
-        if host.endswith(".go.jp") or host.endswith(".gov") or host.endswith(".lg.jp"):
+        if any(host == s.lstrip(".") or host.endswith(s) for s in cls._GOVERNMENT_SUFFIXES):
             return "government"
         if any(host == d or host.endswith("." + d) for d in cls._DISTRIBUTORS):
             return "web"

@@ -18,8 +18,8 @@ from .agents import rough_cut as rough_cut_agent
 from .clients.gemini_client import gemini
 from .clients.parallel_client import parallel
 from .models.schemas import (
-    AgentRun, Asset, Claim, Confidentiality, Project, ResearchResult, ScriptLine, Segment,
-    TelopEntry, now_iso,
+    AgentRun, Asset, Claim, Confidentiality, Project, RESTRICTED_LABELS, ResearchResult,
+    ScriptLine, Segment, TelopEntry, now_iso,
 )
 from .storage import store
 
@@ -166,6 +166,10 @@ def morning_report(project_id: str, cut: dict | None = None) -> dict:
     needs_review = [s for s in segments if s.confidentiality == Confidentiality.NEEDS_HUMAN_REVIEW]
     checked = [c for c in claims if c.last_checked_at]
     total_footage = sum(s.end_seconds - s.start_seconds for s in segments)
+    # A held segment that looks partly usable is the one thing a director should
+    # not have to go looking for: the material is there, and only a boundary
+    # decision stands between them and it.
+    awaiting_boundary = [s for s in segments if s.release_proposal]
     return {
         "status": "FIRST CUT READY FOR DIRECTOR REVIEW",
         "footage_minutes_analyzed": round(total_footage / 60, 1),
@@ -173,6 +177,18 @@ def morning_report(project_id: str, cut: dict | None = None) -> dict:
         "confidential_moments_protected": len(protected),
         "decisions_need_review": len(needs_review)
         + len([c for c in claims if c.requires_human_approval]),
+        "held_awaiting_your_decision": [
+            {
+                "segment_id": s.id,
+                "why_held": s.confidentiality.value,
+                "alert": (f"{len([p for p in s.release_proposal if p.proposed_label not in RESTRICTED_LABELS])}"
+                          f" of {len(s.release_proposal)} sentences here look usable, "
+                          "but where the off-record part starts is your call — "
+                          "nothing has been released."),
+                "sentences": [p.model_dump() for p in s.release_proposal],
+            }
+            for s in awaiting_boundary
+        ],
         # A later GET of the report must still describe the cut that was made.
         "rough_cut": cut or _saved_cut(project_id),
     }

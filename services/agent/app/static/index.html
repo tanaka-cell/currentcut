@@ -79,6 +79,13 @@
       Parallel Search API checks the claims that clear the confidentiality gate, and FFmpeg
       cuts the preview. Allow about three minutes; the steps below fill in as they finish.
     </div>
+    <div class="hint" style="margin-top:.6rem">
+      Footage:
+      <label><input type="radio" name="shoot" value="en" checked> English (a US coffee shop)</label>
+      <label style="margin-left:1rem"><input type="radio" name="shoot" value="ja"> 日本語 (a Japanese one)</label>
+      <br>Same story, two newsrooms. The Japanese shoot is the one this was built for —
+      it produces the caption order sheet a Japanese broadcaster actually uses.
+    </div>
   </div>
 
   <section id="progress" class="hidden">
@@ -100,14 +107,14 @@
       returns. Raw transcripts are never sent — only keyword queries built from public claims.</p>
     <div class="card scroll"><table id="egress"></table></div>
 
-    <h2>Telop manuscript</h2>
-    <p class="lede">The usual route is that the director writes a telop manuscript in
-      Excel, sends it to the edit house, and an assistant there pours it into the
-      programme's own template. So that spreadsheet is what CurrentCut produces —
-      with one column the director would otherwise fill in by hand: whether each figure
-      was checked, and against what.</p>
+    <h2>Caption order sheet</h2>
+    <p class="lede">The usual route is that the director writes the caption sheet in
+      Excel (テロップ原稿, in the Japanese newsroom this was built for), sends it to the
+      edit house, and an assistant there pours it into the programme's own template. So
+      that spreadsheet is what CurrentCut produces — with one column the director would
+      otherwise fill in by hand: whether each figure was checked, and against what.</p>
     <div class="card">
-      <a id="xlsx" href="#" download><b>テロップ原稿.xlsx</b></a> —
+      <a id="xlsx" href="#" download><b>caption-sheet.xlsx</b></a> —
       <a id="csv" href="#" download class="src">or as CSV</a>
       <div class="src" style="margin-top:.6rem">
         Optional: upload your programme's own form (.xlsx, or a scan of the paper pad as
@@ -156,7 +163,8 @@ $('#run').onclick = async () => {
   $('#run').disabled = true;
   $('#run').textContent = 'Running…';
   $('#progress').classList.remove('hidden');
-  const r = await fetch('/api/demo/start', {method:'POST'});
+  const shoot = (document.querySelector('input[name="shoot"]:checked') || {}).value || 'en';
+  const r = await fetch(`/api/demo/start?shoot=${encodeURIComponent(shoot)}`, {method:'POST'});
   if (!r.ok) { $('#run').textContent = 'Failed to start'; return; }
   projectId = (await r.json()).project_id;
   poll();
@@ -249,13 +257,14 @@ async function loadResults() {
 
   if (cut.mp4) { $('#cut').src = `/media/${projectId}/rough_cut.mp4`; }
 
-  const TT = {name:'名前スーパー', data:'データ', comment:'コメントフォロー',
-              place:'場所スーパー', title:'タイトル'};
+  const TT = {name:'Name', data:'Data', comment:'Quote',
+              place:'Location', title:'Title'};
   const telops = await fetch(`/projects/${projectId}/telops`).then(r=>r.json());
   $('#csv').href = `/projects/${projectId}/telops.csv`;
   $('#xlsx').href = `/projects/${projectId}/telop-manuscript.xlsx`;
   $('#telops').innerHTML = `<thead><tr>
-      <th>No</th><th>IN / OUT</th><th>種別</th><th>表示文字</th><th>出典表記</th><th>備考</th>
+      <th>No</th><th>IN / OUT</th><th>Type</th><th>On screen</th>
+      <th>Source line</th><th>Note to the director</th>
     </tr></thead><tbody>` +
     telops.map(t => {
       const [cls] = EV[t.evidence_status] || ['t-mute'];

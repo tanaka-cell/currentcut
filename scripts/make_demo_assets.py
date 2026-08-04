@@ -1,18 +1,27 @@
 """Generate the demo shoot for the Quick Judge Demo — a small factual feature
 about an independent coffee shop under pressure from convenience-store coffee.
 
+Two shoots, the same story told in two places: `en` in the United States and
+`ja` in Japan. English is what the contest judges will run, and a demo whose
+output they cannot read proves nothing about the output; the Japanese one stays
+because the telop order sheet is answering a real Japanese newsroom's problem,
+and dropping it would drop the evidence that this is a tool rather than a demo.
+
 Fully synthetic: the shop, the owner and the customer are invented, and no real
 person or company is quoted. What is deliberately NOT invented is the public
-statistic the owner cites — the national convenience-store count published by
-the Japan Franchise Association. A fictional product cannot be fact-checked,
-because no real evidence for it exists anywhere; that was the flaw in the first
-version of this demo, where a real web search could only return unrelated pages
-that happened to share a number.
+record each owner cites. A fictional product cannot be fact-checked, because no
+real evidence for it exists anywhere; that was the flaw in the first version of
+this demo, where a real web search could only return unrelated pages that
+happened to share a number.
 
 Planted on purpose, one per capability:
-  - a public statistic with a primary source        → should verify
-  - a figure that is only true "as of" a given month → volatility flag
+  - a public statistic with a government publisher   → should verify and be credited
+  - a public RULE stated in the first person         → verifies; must not be
+      filed as the speaker's private figure, and its start year must not make
+      it look stale
+  - a real figure with no public-authority publisher → checked, but uncredited
   - shop-level numbers with no public data           → must stay unverified
+  - an unnamed subject ("this street")               → cannot be checked at all
   - an explicit off-record remark                    → must never leave
   - B-roll and an exterior                           → structure for the cut
 
@@ -20,7 +29,7 @@ Audio uses Gemini TTS when GEMINI_API_KEY is present, otherwise a tone. Each
 clip gets a `<name>.mp4.analysis.json` sidecar holding the ground truth, used
 by mock mode and by the acceptance tests.
 
-Usage: python scripts/make_demo_assets.py
+Usage: python scripts/make_demo_assets.py [en|ja ...]   (default: both)
 """
 from __future__ import annotations
 
@@ -42,7 +51,9 @@ FONT = "C:/Windows/Fonts/meiryo.ttc" if os.name == "nt" else \
 
 GAP = 0.5  # seconds of silence between utterances
 
-CLIPS = [
+SHOOTS = {}
+
+SHOOTS["ja"] = [
     {
         "name": "clip01_interview_owner",
         "color": "0x3b2f26",
@@ -99,6 +110,93 @@ CLIPS = [
         "speaker": "",
         "voice": None,
         "visual": "夕方の商店街、シャッターの下りた店舗が並ぶ",
+        "utterances": [],
+        "duration": 6,
+    },
+]
+
+# The English shoot. Same five things planted, against United States public
+# record instead of Japanese: the judges for this contest test in English, and a
+# demo whose output they cannot read proves nothing about the output.
+#
+# The two figures that should verify are chosen for how firmly they are
+# published, not for how interesting they are:
+#   - the federal minimum wage, stated by the Department of Labor. It is also a
+#     RULE IN FORCE since 2009, so it exercises the distinction between a figure
+#     that ages and a rule that holds until changed — a 2009 date must not make
+#     it stale.
+#   - the share of the private workforce employed by small businesses, published
+#     by the Small Business Administration. A measurement, so it carries an
+#     as-of year and can go stale.
+# The convenience-store count is planted deliberately WITHOUT a government
+# publisher: the trade association that publishes it is not a primary source by
+# the citation rule, so this line should come back checked but uncredited. That
+# is the behaviour worth showing, not a failure.
+SHOOTS["en"] = [
+    {
+        "name": "clip01_interview_owner",
+        "color": "0x3b2f26",
+        "label": "INTERVIEW - Owner, Harrow Bend Coffee",
+        "shot_type": "interview",
+        "speaker": "Owner, Harrow Bend Coffee",
+        "voice": "Charon",
+        "visual": "Interview with the owner across the counter, medium shot from the chest up",
+        "utterances": [
+            # background — nothing to check
+            "My father opened this place in nineteen seventy-eight, and I have been "
+            "behind this counter for twenty-two years.",
+            # public statistic, published by a government body → should verify
+            "Small businesses like this one employ almost half of the private "
+            "workforce in this country.",
+            # a public RULE stated in the first person. The speaker does not set
+            # the federal minimum wage, so the subject is the wage, not the shop.
+            "We pay the federal minimum wage here, seven dollars and twenty-five "
+            "cents an hour. It has not changed since two thousand nine.",
+            # a real figure whose publisher is a trade association, not a public
+            # authority → checked, but nobody to credit on screen
+            "There are more than a hundred and fifty thousand convenience stores "
+            "in this country now, and nearly all of them sell coffee.",
+            # shop-level numbers — nobody publishes these, must stay unverified
+            "We do about two hundred cups a day. Ten years ago it was closer to "
+            "three hundred.",
+            # off record — must never reach search, script or cut
+            "Off the record, we are signing a lease on a second location next "
+            "month. It has not been announced, so please do not use that on air.",
+        ],
+    },
+    {
+        "name": "clip02_interview_customer",
+        "color": "0x4a3b2a",
+        "label": "INTERVIEW - Regular customer",
+        "shot_type": "reaction",
+        "speaker": "Regular customer",
+        "voice": "Aoede",
+        "visual": "Interview with a regular at the counter, coffee cup in frame",
+        "utterances": [
+            "You can taste the difference when somebody actually makes it by hand.",
+            # real, but about an unnamed street — no source can ever match it
+            "A lot of the shops along this street have closed up.",
+        ],
+    },
+    {
+        "name": "clip03_broll_pour",
+        "color": "0x2f3f36",
+        "label": "B-ROLL - Pour-over",
+        "shot_type": "broll",
+        "speaker": "",
+        "voice": None,
+        "visual": "Close-up of a pour-over being made by hand, steam rising",
+        "utterances": [],
+        "duration": 8,
+    },
+    {
+        "name": "clip04_exterior_street",
+        "color": "0x554433",
+        "label": "EXTERIOR - Main street",
+        "shot_type": "exterior",
+        "speaker": "",
+        "voice": None,
+        "visual": "Late afternoon on the main street, several storefronts shuttered",
         "utterances": [],
         "duration": 6,
     },
@@ -172,9 +270,9 @@ def concat_wavs(parts: list[Path], dst: Path) -> None:
                 out.writeframes(w.readframes(w.getnframes()))
 
 
-def build_clip(clip: dict, tmp: Path) -> None:
+def build_clip(clip: dict, tmp: Path, out_dir: Path) -> None:
     name = clip["name"]
-    mp4 = OUT / f"{name}.mp4"
+    mp4 = out_dir / f"{name}.mp4"
     print(f"[{name}]")
 
     segments = []
@@ -246,16 +344,23 @@ def build_clip(clip: dict, tmp: Path) -> None:
 
 
 def main() -> None:
-    OUT.mkdir(parents=True, exist_ok=True)
-    tmp = OUT / "_tmp"
-    tmp.mkdir(exist_ok=True)
-    print(f"Output: {OUT}")
+    wanted = [a for a in sys.argv[1:] if not a.startswith("-")] or list(SHOOTS)
+    unknown = [w for w in wanted if w not in SHOOTS]
+    if unknown:
+        print(f"Unknown shoot(s): {', '.join(unknown)}. Known: {', '.join(SHOOTS)}")
+        return 1
     print(f"TTS: {'Gemini (' + TTS_MODEL + ')' if GEMINI_API_KEY else 'disabled -> tones'}")
-    for clip in CLIPS:
-        build_clip(clip, tmp)
-    for f in tmp.glob("*"):
-        f.unlink()
-    tmp.rmdir()
+    for language in wanted:
+        out_dir = OUT / language
+        out_dir.mkdir(parents=True, exist_ok=True)
+        tmp = out_dir / "_tmp"
+        tmp.mkdir(exist_ok=True)
+        print(f"\n=== {language} -> {out_dir}")
+        for clip in SHOOTS[language]:
+            build_clip(clip, tmp, out_dir)
+        for f in tmp.glob("*"):
+            f.unlink()
+        tmp.rmdir()
     print("Done.")
 
 

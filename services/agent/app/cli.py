@@ -1,26 +1,27 @@
-"""CLI for local runs: python -m app.cli demo [--adk]"""
+"""CLI for local runs: python -m app.cli demo [--adk] [en|ja]"""
 from __future__ import annotations
 
 import json
 import sys
 from pathlib import Path
 
-from . import adk_pipeline, config, pipeline
+from . import adk_pipeline, config, demo, pipeline
 from .models.schemas import Project
 from .storage import store
 
 
-def run_demo(use_adk: bool) -> None:
+def run_demo(use_adk: bool, shoot: str = "") -> None:
     config.ensure_dirs()
-    demo_dir = config.DEMO_ASSETS_DIR
+    shoot = shoot or config.DEFAULT_DEMO_SHOOT
+    demo_dir = config.demo_dir(shoot)
     videos = sorted(demo_dir.glob("*.mp4"))
     if not videos:
         print(f"No demo assets in {demo_dir}.")
-        print("Generate them first:  python ../../scripts/make_demo_assets.py")
+        print(f"Generate them first:  python ../../scripts/make_demo_assets.py {shoot}")
         sys.exit(1)
 
     project = Project(
-        title="コンビニコーヒーに押される街の喫茶店 (Quick Judge Demo)",
+        title=demo.SHOOT_TITLES.get(shoot, "Quick Judge Demo"),
         target_duration_seconds=90,
         air_date="2026-08-07",
         tone="energetic but not sensational",
@@ -46,6 +47,7 @@ def run_demo(use_adk: bool) -> None:
 if __name__ == "__main__":
     args = sys.argv[1:]
     if args and args[0] == "demo":
-        run_demo(use_adk="--adk" in args)
+        shoot = next((a for a in args[1:] if a in config.DEMO_SHOOTS), "")
+        run_demo(use_adk="--adk" in args, shoot=shoot)
     else:
-        print("usage: python -m app.cli demo [--adk]")
+        print(f"usage: python -m app.cli demo [--adk] [{'|'.join(config.DEMO_SHOOTS)}]")

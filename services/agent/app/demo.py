@@ -30,19 +30,30 @@ _jobs: dict[str, dict] = {}
 _lock = threading.Lock()
 
 
-def demo_clips() -> list[str]:
-    return [str(p) for p in sorted(config.DEMO_ASSETS_DIR.glob("*.mp4"))]
+def demo_clips(shoot: str = "") -> list[str]:
+    return [str(p) for p in sorted(config.demo_dir(shoot).glob("*.mp4"))]
 
 
-def start() -> str:
+# One story, shot in two places. The titles are the director's, so each is in
+# the language the shoot was made in.
+SHOOT_TITLES = {
+    "en": "The corner coffee shop against convenience-store coffee (Quick Judge Demo)",
+    "ja": "コンビニコーヒーに押される街の喫茶店 (Quick Judge Demo)",
+}
+
+
+def start(shoot: str = "") -> str:
     """Create the demo project and run it on a worker thread."""
     config.ensure_dirs()
-    clips = demo_clips()
+    shoot = shoot or config.DEFAULT_DEMO_SHOOT
+    if shoot not in config.DEMO_SHOOTS:
+        raise RuntimeError(f"unknown shoot {shoot!r}; known: {', '.join(config.DEMO_SHOOTS)}")
+    clips = demo_clips(shoot)
     if not clips:
-        raise RuntimeError(f"no demo footage found in {config.DEMO_ASSETS_DIR}")
+        raise RuntimeError(f"no demo footage found in {config.demo_dir(shoot)}")
 
     project = Project(
-        title="コンビニコーヒーに押される街の喫茶店 (Quick Judge Demo)",
+        title=SHOOT_TITLES.get(shoot, shoot),
         target_duration_seconds=90,
         air_date="",
         tone="energetic but not sensational",

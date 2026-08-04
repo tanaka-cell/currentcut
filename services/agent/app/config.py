@@ -75,6 +75,19 @@ DEMO_ASSETS_DIR = (
     else REPO_ROOT / "demo-assets" / "generated"
 )
 
+# The demo ships one shoot per language. English is the default because that is
+# what a visitor to the hosted demo will be reading.
+DEMO_SHOOTS = ("en", "ja")
+DEFAULT_DEMO_SHOOT = os.getenv("CURRENTCUT_DEFAULT_SHOOT", "en")
+
+
+def demo_dir(shoot: str = "") -> Path:
+    """Footage for one shoot. Falls back to the flat directory so a checkout
+    made before the shoots were split still runs."""
+    shoot = shoot or DEFAULT_DEMO_SHOOT
+    per_language = DEMO_ASSETS_DIR / shoot
+    return per_language if per_language.is_dir() else DEMO_ASSETS_DIR
+
 PARALLEL_BASE_URL = os.getenv("PARALLEL_BASE_URL", "https://api.parallel.ai")
 PARALLEL_MAX_SEARCHES_PER_RUN = int(os.getenv("PARALLEL_MAX_SEARCHES_PER_RUN", "20"))
 # Text budget per search. The default returns snippets far too short to contain

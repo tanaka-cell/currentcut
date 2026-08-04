@@ -9,6 +9,7 @@ import re
 
 from pydantic import BaseModel
 
+from .. import lang
 from ..clients.gemini_client import gemini
 from ..models.schemas import Claim, Segment, Verifiability
 from ..storage import store
@@ -22,12 +23,10 @@ _VOLATILITY = {
 # "人気/話題" style claims need a human before searching (brief §6).
 _HUMAN_APPROVAL_TYPES = {"popularity", "superlative"}
 
-# What the director is told about a claim nobody could look up. Japanese,
-# because it lands on the telop order sheet a Japanese operator reads.
-_UNCHECKABLE_NOTE = {
-    Verifiability.OWN_BUSINESS: "自店の数字　公開データなし　話者の発言として表記",
-    Verifiability.UNIDENTIFIED_SUBJECT: "対象が特定できない　裏取り不可　話者の発言として表記",
-}
+# What the director is told about a claim nobody could look up. Written in the
+# language of the shoot, because it lands on the order sheet somebody reads —
+# see app/lang.py.
+_UNCHECKABLE_NOTE = lang.UNCHECKABLE_NOTE
 
 
 class _LlmClaim(BaseModel):
@@ -48,9 +47,12 @@ From the transcript below, list claims that can be checked against public web
 sources (counts, prices, dates, stats, rankings, superlatives like "first/biggest",
 popularity claims like "popular/trending").
 
+WRITE EVERYTHING — claim_text, claim_subject and both queries — IN THE SAME
+LANGUAGE AS THE TRANSCRIPT. The examples below are in that language too.
+
 CRITICAL: every claim must be SELF-CONTAINED. The claim_text must name what the
-claim is about, even when the speaker only said "the price is 1,980 yen".
-Write "<subject>の価格は1,980円" — never a bare "価格は1,980円". A claim without
+claim is about, even when the speaker only said "{ex_subjectless}".
+Write "{ex_self_contained}" — never a bare "{ex_subjectless}". A claim without
 its subject cannot be verified, because any page containing that number would
 appear to match.
 claim_subject: the thing the claim is really about — see verifiability below,
@@ -62,19 +64,19 @@ checked at all, so read the cases carefully.
 - "public_record": the substance is published somewhere public — national or
   industry statistics, a statutory rate, a law or regulation, an organisation's
   own official figures. **A statutory or nationally-set figure stays
-  public_record even when the speaker says it about themselves.** "We charge 8%
-  on takeaway" is the national reduced tax rate, which the speaker does not set;
-  the subject is the tax rate, not the speaker's shop. Same for a licence fee, a
-  minimum wage, a subsidy amount, an industry-wide total.
-  Set claim_subject to the public thing (e.g. "消費税の軽減税率", "全国のコンビニ
-  エンスストア"), and write claim_text so it states the public fact.
+  public_record even when the speaker says it about themselves.**
+  {ex_first_person_rule} — the speaker does not set it, so the subject is that
+  public thing, not their business. Same for a licence fee, a tax rate, a
+  subsidy amount, an industry-wide total.
+  Set claim_subject to the public thing (e.g. {ex_public_subject}), and write
+  claim_text so it states the public fact.
 - "own_business": a figure only the speaker could know, because nobody publishes
   it — their own takings, their own headcount, their own customer numbers, how
   long they personally have traded. Searching for these returns unrelated pages
   that merely share a number.
-- "unidentified_subject": the claim is about something real but unnamed — "this
-  shopping street", "the station over there", "our neighbourhood". No source can
-  ever be about the same entity, so it cannot be checked. Do NOT guess a name.
+- "unidentified_subject": the claim is about something real but unnamed —
+  {ex_unnamed}. No source can ever be about the same entity, so it cannot be
+  checked. Do NOT guess a name.
 
 Extract ALL THREE KINDS. own_business and unidentified_subject claims are not
 searched, but they are still spoken on camera and still need captions, so
@@ -88,10 +90,9 @@ transcript sentence:
 - safe_search_query: entity + metric + year (+ the figure itself if the claim
   states one — the page that states the number is the one we need).
 - publisher_search_query: the same fact aimed at whoever actually publishes it —
-  name the ministry, agency, industry association or the company's own IR/press
-  pages ("国税庁 軽減税率 8% 10%", "日本フランチャイズチェーン協会 統計調査 店舗数").
+  name the ministry, agency, statistics office, industry association or the
+  organisation's own press pages ({ex_publisher_queries}).
   Leave "" if you genuinely cannot name a likely publisher.
-Write claim_text in the same language as the transcript.
 claim_type: one of store_count/price/release_date/stat/ranking/superlative/popularity/other.
 
 CONTEXT is background only — use it to work out what the speaker is referring
@@ -114,6 +115,7 @@ _MOCK_RULES = [
 
 def extract_claims(project_id: str, segments: list[Segment]) -> list[Claim]:
     claims: list[Claim] = []
+    language = lang.of_segments(segments)
     # Speakers drop the subject after introducing it ("...and the price is
     # 1,980 yen"). Carry earlier utterances so the extractor can restore it.
     context = " / ".join(s.transcript for s in segments if s.transcript.strip())[:1200]
@@ -130,7 +132,8 @@ def extract_claims(project_id: str, segments: list[Segment]) -> list[Claim]:
             try:
                 llm = gemini.structured(
                     _LLM_PROMPT.format(speaker=seg.speaker or "unknown",
-                                       transcript=seg.transcript, context=context),
+                                       transcript=seg.transcript, context=context,
+                                       **_examples(language)),
                     _LlmClaims,
                 )
                 extracted = [
@@ -161,7 +164,7 @@ def extract_claims(project_id: str, segments: list[Segment]) -> list[Claim]:
                 extra_search_queries=extra if searchable else [],
                 allow_external_search=searchable,
                 requires_human_approval=needs_human,
-                volatility_note=_UNCHECKABLE_NOTE.get(verifiability, ""),
+                volatility_note=_UNCHECKABLE_NOTE[language].get(verifiability, ""),
             ))
     store.put_many(project_id, "claims", claims)
     return claims
@@ -190,6 +193,11 @@ def _with_subject(claim_text: str, subject: str) -> str:
     if not subject or subject in claim_text:
         return claim_text
     return f"{subject}: {claim_text}"
+
+
+def _examples(language: str) -> dict:
+    """Prompt examples in the shoot's own language — see lang.CLAIM_EXAMPLES."""
+    return {f"ex_{k}": v for k, v in lang.CLAIM_EXAMPLES[language].items()}
 
 
 def _verifiability(raw: str) -> Verifiability:
