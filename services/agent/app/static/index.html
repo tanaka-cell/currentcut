@@ -65,7 +65,12 @@
          border-radius:3px;padding:.85rem 1.6rem;cursor:pointer}
   button:hover{filter:brightness(1.08)}
   button:disabled{background:#b8b3a8;cursor:default}
-  .hint{font-size:.85rem;color:var(--ink-faint);margin-top:.6rem}
+  .hint{font-size:.85rem;line-height:1.6;color:var(--ink-faint);margin-top:1.1rem;
+        max-width:54ch}
+  .hint + .hint{margin-top:1.1rem;padding-top:1rem;border-top:1px solid var(--line)}
+  /* A choice should wrap as a whole or not at all — "(a Japanese one)" losing
+     its last word to the next line reads as a typo, not as a layout. */
+  .hint label{display:inline-block;white-space:nowrap}
   .card{background:var(--card);border:1px solid var(--line);border-radius:4px;padding:1.1rem 1.25rem;margin:1rem 0}
   .steps{list-style:none;padding:0;margin:0}
   .steps li{display:flex;gap:.85rem;align-items:baseline;padding:.55rem 0;border-bottom:1px solid var(--line)}
@@ -121,30 +126,27 @@
   <div>
     <p class="brand">CurrentCut <span>— the overnight AI edit desk for factual TV</span></p>
     <h1>Long day? I've got the night shift.</h1>
-    <p class="tagline">Hand over tonight's footage and go rest. By morning there is
-      a first cut whose <strong>factual lines link to the sources checked — or say
-      why none is attached</strong> — with every held-back moment on record for
-      your review.</p>
+    <p class="tagline">Hand over tonight's footage and go rest. By morning: a first
+      cut whose <strong>factual lines link to the sources checked — or say why none
+      is attached</strong>, and a record of everything held back.</p>
 
     <div class="cta">
       <div class="cta-row">
         <button id="run">Run the overnight demo</button>
-        <button id="sample-btn" type="button" class="ghost">View a sample morning package</button>
+        <button id="sample-btn" type="button" class="ghost">View a sample</button>
       </div>
       <div class="hint">
-        Runs for real — nothing here is pre-generated. Gemini watches the clips, the
-        Parallel Search API checks the claims that clear the confidentiality gate, and
-        FFmpeg cuts the preview. <b>This demo shoot takes five to six minutes</b>;
-        the steps below fill in as each one finishes. A real night's rushes takes
-        longer than that — long takes are split and read several at a time, so the
-        wait tracks how much footage there is, not how long you can sit and watch.
+        Runs for real — nothing is pre-generated. Gemini watches, Parallel Search
+        checks the claims that clear the confidentiality gate, FFmpeg cuts.
+        <b>This demo shoot takes five to six minutes</b>; a night's rushes takes
+        longer, split into pieces read several at a time.
       </div>
-      <div class="hint" style="margin-top:.6rem">
+      <div class="hint">
         Footage:
         <label><input type="radio" name="shoot" value="en" checked> English (a US coffee shop)</label>
-        <label style="margin-left:1rem"><input type="radio" name="shoot" value="ja"> 日本語 (a Japanese one)</label>
-        <br>Same story, two newsrooms. The Japanese shoot is the one this was built for —
-        it produces the caption order sheet a Japanese broadcaster actually uses.
+        <label style="margin-left:1rem"><input type="radio" name="shoot" value="ja"> 日本語 (a Japanese shop)</label>
+        <br>Same story, two newsrooms. The Japanese one is what this was built for —
+        it produces a Japanese broadcaster's caption order sheet.
       </div>
     </div>
 
@@ -152,16 +154,12 @@
       <summary>Or run it on your own footage</summary>
       <div class="card">
         <p class="src" style="margin-top:0">
-          Pick the clips from tonight's shoot (the copies you already made off the
-          card) and CurrentCut runs the same overnight pass on them.
-          This public instance accepts up to <span id="cap-files">12</span> clips,
+          Up to <span id="cap-files">12</span> clips,
           <span id="cap-file">300</span> MB each,
           <span id="cap-total">900</span> MB / <span id="cap-min">60</span> minutes
-          of footage in total, and a shared daily run budget.
-          Those are limits of a shared demo running on our API keys and one small
-          machine, not of the pipeline: a take longer than
-          <span id="cap-chunk">10</span> minutes is split and its pieces read in
-          parallel, so a private deployment raises these with a config change.
+          in total, on a daily budget — one small shared machine on our API keys,
+          not a limit of the pipeline. Takes over <span id="cap-chunk">10</span>
+          minutes are split and read in parallel.
         </p>
         <input type="file" id="own-files" multiple accept=".mp4,.mov,.m4v,video/mp4,video/quicktime">
         <div style="margin-top:.6rem">
@@ -169,10 +167,9 @@
           <span id="own-msg" class="src" style="margin-left:.6rem"></span>
         </div>
         <p class="src" style="margin-bottom:0">
-          Uploaded footage is analysed by Gemini under Google's API terms and kept
-          only on this demo instance's temporary disk. It is a public demo:
-          please don't upload confidential material or people who haven't
-          consented to being processed.
+          Uploads are analysed by Gemini under Google's API terms and kept only on
+          this instance's temporary disk. Please don't upload confidential material,
+          or people who haven't consented to being processed.
         </p>
       </div>
     </details>
@@ -206,9 +203,9 @@
         </ul>
       </div>
     </div>
-    <p class="preview-note">Everything above is actual output from one live run of this
-      pipeline — nothing is a mock-up. <b>View a sample morning package</b> opens that
-      same run in full; <b>Run the overnight demo</b> makes tonight's in front of you.</p>
+    <p class="preview-note">Actual output from one live run — nothing is a mock-up.
+      The sample button opens that same run in full; the demo button makes tonight's
+      in front of you.</p>
   </aside>
   </div>
 
@@ -248,8 +245,9 @@
     <div class="nums" id="nums"></div>
 
     <h2>The script, line by line</h2>
-    <p class="lede">Each line points back to the footage timecode it came from. A number
-      reaches a caption only when a retrieved page matched it on entity, attribute and value.</p>
+    <p class="lede">Every line points back to the timecode it came from. A number
+      reaches a caption only when a retrieved page matched it on entity, attribute
+      and value.</p>
     <div class="card scroll"><table id="script"></table></div>
 
     <h2>What left the building</h2>
@@ -258,11 +256,10 @@
     <div class="card scroll"><table id="egress"></table></div>
 
     <h2>Caption order sheet</h2>
-    <p class="lede">The usual route is that the director writes the caption sheet in
-      Excel (テロップ原稿, in the Japanese newsroom this was built for), sends it to the
-      edit house, and an assistant there pours it into the programme's own template. So
-      that spreadsheet is what CurrentCut produces — with one column the director would
-      otherwise fill in by hand: whether each figure was checked, and against what.</p>
+    <p class="lede">In a Japanese newsroom the director writes this in Excel
+      (テロップ原稿) and the edit house pours it into the programme's template — so the
+      spreadsheet is what CurrentCut produces, carrying the one column a director
+      would otherwise fill in by hand: whether each figure was checked, against what.</p>
     <div class="card">
       <a id="xlsx" href="#" download><b>caption-sheet.xlsx</b></a> —
       <a id="csv" href="#" download class="src">or as CSV</a>
@@ -285,9 +282,9 @@
 
   <footer>
     Gemini · Google ADK · Parallel Search API · FFmpeg.
-    Demo footage is synthetic and fictional; the speakers are not real people.
-    Confidentiality controls are application-layer: restricted material is kept out of
-    search, script and cut by this service, but the media still exists in storage.
+    Demo footage is synthetic; the speakers are not real people.
+    Confidentiality is enforced in this service — restricted material is kept out of
+    search, script and cut — but the media still exists in storage.
   </footer>
 </div>
 
