@@ -212,6 +212,48 @@ def supports(judgment: EvidenceJudgment) -> bool:
     return judgment.entity_match and judgment.attribute_match and judgment.value_match
 
 
+# A source good enough to be named on air: the body that publishes the figure,
+# or the organisation the figure is about.
+PRIMARY_SOURCE_TYPES = ("government", "official")
+
+
+def citable_source(results: list[ResearchResult]) -> ResearchResult | None:
+    """The one source that may be printed on screen as 出典, or None.
+
+    Supporting a claim and being fit to name on air are different bars. A
+    payments company's explainer of the consumption-tax rates genuinely supports
+    "eat-in is 10%" — and putting "出典 stripe.com" under that figure tells the
+    viewer the broadcaster got its tax rates from a payments vendor. The
+    attribution has to name who actually publishes the number.
+
+    Returning None is a real answer, not a failure: the claim stays checked, the
+    telop simply carries no attribution and the director is told to find the
+    official release. Naming a source that is merely adjacent is worse than
+    naming none.
+
+    `source_type` comes from the URL, decided by code. The comparator's own
+    `source_is_primary` is deliberately not consulted here: asked the question
+    directly it called nikkei.com and bengo4.com primary sources for a national
+    statistic, and one of those reached air. The model finds evidence; the rule
+    for what may be credited stays where it can be read and tested.
+    """
+    primary = [r for r in results
+               if r.supports_claim and r.source_type in PRIMARY_SOURCE_TYPES]
+    # Deterministic, so the same evidence always yields the same 出典 on the
+    # sheet. Both kinds are acceptable; government first is only a tie-break.
+    primary.sort(key=lambda r: (PRIMARY_SOURCE_TYPES.index(r.source_type), r.source_url))
+    return primary[0] if primary else None
+
+
+def supporting_domains(results: list[ResearchResult], limit: int = 2) -> list[str]:
+    """Who did back the claim, for telling a director where to start looking."""
+    seen: list[str] = []
+    for r in results:
+        if r.supports_claim and r.source_domain and r.source_domain not in seen:
+            seen.append(r.source_domain)
+    return seen[:limit]
+
+
 def _numbers(text: str) -> set[str]:
     return {n.replace(",", "") for n in re.findall(r"[\d,]+", text) if n.strip(",")}
 

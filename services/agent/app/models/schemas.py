@@ -138,7 +138,13 @@ class ResearchResult(BaseModel):
     published_at: str = ""
     event_date: str = ""
     excerpt: str = ""
+    # Decided from the URL by code. This, not the model's opinion, is what makes
+    # a source creditable on screen — see evidence.citable_source.
     source_type: str = "web"  # official | government | news | web
+    # The comparator's view, kept for the director and for calibration. It is
+    # not allowed to change source_type: asked the same question it called a
+    # newspaper and a legal-media site primary sources for a national statistic.
+    model_calls_it_primary: bool = False
     supports_claim: Optional[bool] = None
     # Kept separately so "conflicting" can mean "same subject, different number"
     # rather than "some unrelated page also contained a number".

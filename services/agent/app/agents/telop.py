@@ -22,7 +22,7 @@ import re
 from pydantic import BaseModel, Field
 
 from ..clients.gemini_client import gemini
-from . import house_style
+from . import evidence, house_style
 from ..models.schemas import (
     Claim, EvidenceStatus, ResearchResult, ScriptLine, Segment, TelopEntry,
 )
@@ -128,18 +128,31 @@ def _entries_for_line(project_id: str, line: ScriptLine, seg: Segment,
         claim = claim_by_id.get(claim_id)
         if claim is None:
             continue
-        supporting = [r for r in research_by_claim.get(claim_id, []) if r.supports_claim]
-        supporting.sort(key=lambda r: 0 if r.source_type in ("official", "government") else 1)
+        results = research_by_claim.get(claim_id, [])
+        citable = evidence.citable_source(results)
 
-        if claim.verification_status in _AIRABLE_AS_FACT and supporting:
+        if claim.verification_status in _AIRABLE_AS_FACT:
+            # The figure was checked either way. Whether it may carry a 出典 on
+            # screen is a separate, stricter question — see evidence.citable_source.
+            if citable:
+                source_note = credit_format.replace("◯◯", citable.source_domain)
+                caution = claim.volatility_note
+            else:
+                backers = evidence.supporting_domains(results)
+                source_note = ""
+                caution = (f"裏付けあり　一次情報なし（{'　'.join(backers)}）"
+                           "　公式発表を確認して出典表記" if backers else
+                           "裏付けあり　一次情報なし　公式発表を確認して出典表記")
+                if claim.volatility_note:
+                    caution = f"{caution}／{claim.volatility_note}"
             out.append(TelopEntry(
                 project_id=project_id, script_line_id=line.id,
                 in_seconds=line.start_seconds, out_seconds=line.end_seconds,
                 telop_type="data",
                 text_lines=_fit(_condense(claim.claim_text, "data telop", style_block)),
-                source_note=credit_format.replace("◯◯", supporting[0].source_domain),
+                source_note=source_note,
                 evidence_status=claim.verification_status,
-                caution=claim.volatility_note,
+                caution=caution,
             ))
         elif claim.verification_status == EvidenceStatus.CONFLICTING:
             out.append(TelopEntry(

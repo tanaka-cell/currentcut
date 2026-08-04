@@ -27,20 +27,25 @@ def test_telops_carry_no_japanese_punctuation(overnight_run):
         assert "。" not in joined and "、" not in joined, f"punctuation in telop: {joined}"
 
 
-def test_data_telops_state_their_source_or_flag_the_gap(overnight_run):
-    """A figure on screen either carries its source or is flagged for the director."""
-    from app.models.schemas import EvidenceStatus, TelopEntry
+def test_no_figure_reaches_the_sheet_bare(overnight_run):
+    """Every figure on screen carries either its source or a reason it has none.
+
+    Not "confirmed implies attributed" — a claim can be checked and still have
+    nobody worth naming on air (see test_citation.py). What must never happen is
+    a number arriving on the operator's sheet with neither an attribution nor a
+    note about what is missing: that is the one state that reads as settled when
+    it is not.
+    """
+    from app.models.schemas import TelopEntry
     from app.storage import store
 
     project_id, _ = overnight_run
-    for e in store.list(project_id, "telops", TelopEntry):
-        if e.telop_type != "data":
-            continue
-        if e.evidence_status in (EvidenceStatus.PRIMARY_SOURCE_CONFIRMED,
-                                 EvidenceStatus.MULTIPLE_SOURCES_CONFIRMED):
-            assert e.source_note, "a confirmed figure must carry its attribution"
-        else:
-            assert e.caution, "an unconfirmed figure must be flagged before it is set"
+    data = [e for e in store.list(project_id, "telops", TelopEntry)
+            if e.telop_type == "data"]
+    assert data, "the demo footage contains figures; some must reach the sheet"
+    for e in data:
+        assert e.source_note or e.caution, (
+            f"figure with neither source nor caveat: {''.join(e.text_lines)}")
 
 
 def test_no_off_record_text_reaches_the_telop_sheet(overnight_run):

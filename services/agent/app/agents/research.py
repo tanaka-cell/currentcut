@@ -50,8 +50,12 @@ def research_claims(
             r.dated_qualifier = judgment.dated_qualifier
             r.value_as_of_year = judgment.value_as_of_year
             r.judgment_reason = judgment.reason
-            if judgment.source_is_primary and r.source_type == "web":
-                r.source_type = "official"
+            # The model's opinion is recorded, never acted on. Asked whether a
+            # source is primary it said yes for 7andi's own IR page (right), and
+            # also for nikkei.com and bengo4.com (wrong) — and bengo4 was then
+            # printed on air as the source for a national statistic. What may be
+            # credited is decided from the URL, by code, in _source_type.
+            r.model_calls_it_primary = judgment.source_is_primary
             r.confidence = 0.85 if r.supports_claim else 0.1
 
         supporting = [r for r in results if r.supports_claim]

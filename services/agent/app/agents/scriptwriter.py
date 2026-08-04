@@ -10,7 +10,7 @@ from ..models.schemas import (
     Claim, Confidentiality, EvidenceStatus, Project, ResearchResult, ScriptLine, Segment,
 )
 from ..storage import store
-from . import house_style
+from . import evidence, house_style
 
 _SHOT_ORDER = {"exterior": 0, "broll": 1, "interview": 2, "reaction": 3, "other": 4}
 # Programmes that open on a reaction rather than an establishing shot.
@@ -68,8 +68,8 @@ def _write_to_corner_format(project: Project, style, airable: list[Segment],
         duration = min(match.end_seconds - match.start_seconds, float(want))
         seg_claims = claims_by_segment.get(match.id, [])
         featured = _featured_claim(seg_claims)
-        evidence = _line_evidence(match, featured)
-        note = _note(evidence, featured, research_by_claim)
+        status = _line_evidence(match, featured)
+        note = _note(status, featured, research_by_claim)
         short_by = want - duration
         if short_by > 3:
             gap = f"{block.role}は通常{want}秒　この素材は{duration:.0f}秒　{short_by:.0f}秒不足"
@@ -85,7 +85,7 @@ def _write_to_corner_format(project: Project, style, airable: list[Segment],
             source_in_seconds=match.start_seconds,
             source_out_seconds=match.start_seconds + duration,
             claim_ids=[c.id for c in seg_claims],
-            evidence_status=evidence, confidentiality=match.confidentiality,
+            evidence_status=status, confidentiality=match.confidentiality,
             editorial_note=note,
         ))
         cursor += duration
@@ -149,7 +149,7 @@ def write_script(
         # note must all describe the same claim, or the line contradicts itself
         # (a caption citing a source under a status saying nothing backs it).
         featured = _featured_claim(seg_claims)
-        evidence = _line_evidence(seg, featured)
+        status = _line_evidence(seg, featured)
         caption = _caption_for(seg, featured, research_by_claim)
 
         lines.append(ScriptLine(
@@ -165,9 +165,9 @@ def write_script(
             source_in_seconds=seg.start_seconds,
             source_out_seconds=seg.start_seconds + seg_duration,
             claim_ids=[c.id for c in seg_claims],
-            evidence_status=evidence,
+            evidence_status=status,
             confidentiality=seg.confidentiality,
-            editorial_note=_note(evidence, featured, research_by_claim),
+            editorial_note=_note(status, featured, research_by_claim),
         ))
         cursor += seg_duration
 
@@ -194,12 +194,12 @@ def _featured_claim(seg_claims: list[Claim]) -> Claim | None:
                   key=lambda c: _CLAIM_PRIORITY.get(c.verification_status, 4))[0]
 
 
-def _note(evidence: EvidenceStatus, claim: Claim | None,
+def _note(status: EvidenceStatus, claim: Claim | None,
           research_by_claim: dict[str, list[ResearchResult]]) -> str:
     """What the director needs to decide about this line, in plain words."""
     if claim is None:
         return ""
-    if evidence == EvidenceStatus.CONFLICTING:
+    if status == EvidenceStatus.CONFLICTING:
         others = [r for r in research_by_claim.get(claim.id, [])
                   if r.source_value and not r.supports_claim
                   and r.entity_match and r.attribute_match]
@@ -209,13 +209,21 @@ def _note(evidence: EvidenceStatus, claim: Claim | None,
             return (f"Sources give a different figure: {found.source_value} "
                     f"({found.source_domain}). The line as spoken may be out of date.")
         return "Sources disagree with the line as spoken."
-    if evidence == EvidenceStatus.UNVERIFIED:
+    if status == EvidenceStatus.UNVERIFIED:
         if claim.volatility_note:
             return claim.volatility_note
         return "No public source backs this. Attribute it to the speaker or drop the number."
+    notes = []
+    if evidence.citable_source(research_by_claim.get(claim.id, [])) is None:
+        # Confirmed, but by nobody worth naming on air. Say so here rather than
+        # let the line look fully cleared because its status reads CONFIRMED.
+        backers = evidence.supporting_domains(research_by_claim.get(claim.id, []))
+        notes.append("Checked, but no primary source to credit"
+                     + (f" (backed by {', '.join(backers)})" if backers else "")
+                     + ". Find the official release before adding a 出典.")
     if claim.volatility_note:
-        return f"{claim.volatility_note} — confirm before locking."
-    return ""
+        notes.append(f"{claim.volatility_note} — confirm before locking.")
+    return " ".join(notes)
 
 
 def _line_evidence(seg: Segment, claim: Claim | None) -> EvidenceStatus:
@@ -230,13 +238,16 @@ def _caption_for(seg: Segment, claim: Claim | None,
     if claim is not None and claim.verification_status in (
             EvidenceStatus.PRIMARY_SOURCE_CONFIRMED,
             EvidenceStatus.MULTIPLE_SOURCES_CONFIRMED):
-        # Only a source that actually supports the claim may be cited. Citing
-        # results[0] regardless of support is how an anime fan site ended up
-        # printed as the source for a product price.
-        supporting = [r for r in research_by_claim.get(claim.id, []) if r.supports_claim]
-        supporting.sort(key=lambda r: 0 if r.source_type in ("official", "government") else 1)
-        if supporting:
-            return f"{claim.claim_text}（出典: {supporting[0].source_domain}）"
+        # Only a primary source may be named on screen. Citing results[0]
+        # regardless of support is how an anime fan site ended up printed as the
+        # source for a product price; citing any supporting source is how a
+        # payments vendor ended up printed under the national tax rates.
+        citable = evidence.citable_source(research_by_claim.get(claim.id, []))
+        if citable:
+            return f"{claim.claim_text}（出典: {citable.source_domain}）"
+        # Checked, but with nobody worth naming. The figure still belongs on
+        # screen; the attribution does not.
+        return claim.claim_text
     if seg.speaker and seg.shot_type == "interview":
         return seg.speaker
     return ""

@@ -220,8 +220,10 @@ def test_partial_verification_is_not_treated_as_an_outage(monkeypatch):
                       confidentiality=Confidentiality.PUBLIC, allow_external_search=True)
     claim = Claim(segment_id=segment.id, claim_text="コンビニは全国に約5万6千店",
                   allow_external_search=True, safe_search_query="コンビニ 店舗数")
-    results = [ResearchResult(claim_id=claim.id, source_url="https://a.go.jp/a"),
-               ResearchResult(claim_id=claim.id, source_url="https://b.go.jp/b")]
+    results = [ResearchResult(claim_id=claim.id, source_url="https://a.go.jp/a",
+                              source_type="government"),
+               ResearchResult(claim_id=claim.id, source_url="https://b.go.jp/b",
+                              source_type="government")]
 
     monkeypatch.setattr(parallel_client.parallel, "mock", True)
     monkeypatch.setattr(evidence, "judge_all", lambda c, rs: [
@@ -249,8 +251,14 @@ def _research_with(monkeypatch, judgments, results):
     claim = Claim(segment_id=segment.id, claim_text="コンビニは全国に約5万6千店",
                   claim_type="store_count", allow_external_search=True,
                   safe_search_query="コンビニ 店舗数")
+    from app.clients.parallel_client import ParallelClient
     for r in results:
         r.claim_id = claim.id
+        # Classified from the URL, exactly as the client does it. These tests
+        # used to leave source_type at its default and let the comparator's
+        # source_is_primary promote it — which is precisely the path that was
+        # promoting newspapers into on-air citations.
+        r.source_type = ParallelClient._source_type(r.source_url)
     monkeypatch.setattr(parallel_client.parallel, "mock", True)
     monkeypatch.setattr(evidence, "judge_all", lambda c, rs: judgments)
     monkeypatch.setattr(research.parallel, "search_for_claim", lambda *a, **kw: results)
