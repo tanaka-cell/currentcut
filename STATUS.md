@@ -1,6 +1,6 @@
 # STATUS.md — honest state of the build
 
-_Last update: 2026-08-03 (after the 4-AI review and the trust fixes)_
+_Last update: 2026-08-04 (verification reliability — the first cut now arrives sourced)_
 
 ## Positioning: SETTLED
 Axis unchanged — "wake up to a first cut". The differentiator is that the cut
@@ -47,23 +47,69 @@ See DECISIONS D-011/D-012.
 | Claims falsely marked CONFIRMED | 3 | 0 |
 | Egress Log rows with the pre-send state | 0 of 5 | every attempt kept, linked to its outcome |
 
-The fictional demo product now yields **zero** confirmed claims. That is the
-correct answer — a made-up product has no real evidence — and it is the reason
-the demo subject has to change (below).
+The fictional demo product yielded **zero** confirmed claims. That was the
+correct answer — a made-up product has no real evidence — and it is why the demo
+subject was changed to a shoot that cites real public statistics.
+
+## Verification reliability (2026-08-04): ✅ the sourced line now shows up
+
+The headline gap — production runs finishing with **zero** confirmed claims, so
+the "sourced first cut" was never on screen — was four separate faults, each
+found by measuring rather than reasoning.
+
+Confirmed claims per run, same footage, five consecutive runs:
+
+| | before | after |
+|---|---|---|
+| Confirmed claims per run | 0, 0, 0 | **2, 3, 3, 2, 3** |
+| Tax-rate claims confirmed | 0 (never searched) | **10 / 10** |
+| Runs with no sourced line at all | all of them | none |
+
+Sources are nta.go.jp, keisan.nta.go.jp, mof.go.jp, customs.go.jp, nikkei.com
+and 7andi's IR pages.
+
+The store-count claim still fails to confirm in 2 runs out of 5, and that is the
+rule working: the only figures retrieved on those runs were counts from 2019 and
+2021. "About 56,000 of them now" is not settled by a 2019 count, and the claim
+carries 「数字は合うが出典が古い」 rather than a citation.
+
+| Fault | What it did | Fix |
+|---|---|---|
+| A statutory rate was filed as the speaker's private figure | "we charge 8% on takeaway" is the national reduced rate; labelled own-business, it was never searched — losing the one claim with a government source behind it. 3 runs out of 3. | `Verifiability` on the claim: `public_record` / `own_business` / `unidentified_subject`. A nationally-set figure stays public even in the first person; unknown labels fail closed to unsearchable |
+| One keyword query, and no text budget | Parallel returned 42–299 char snippets that never contained the number, so every judgment honestly read "the source does not state the value" | A second query aimed at the publisher (国税庁, 日本フランチャイズチェーン協会) plus `max_chars_total`; both queries pass the egress gate. Measured: ~24,500 chars, 4 pages carrying the figure, including the industry association's own page |
+| Batch verdicts keyed on an index the model omits | Gemini rarely emits `source_index`, so every verdict in the batch was discarded and the run read as "nothing supports any of this" | `_align()`: indices win when present, position only when no verdict is labelled *and* the counts agree. Never guess a verdict onto a source |
+| A transient API error looked identical to a finding | One 503 wiped a claim's evidence and reported it as unsupported | Retry, then say plainly that the check did not run (`Claim.verification_error`). An outage is not a finding |
+
+Two further faults surfaced while verifying the above:
+- **A 2014 figure was confirming a present-tense claim.** "About 56,000 of them
+  now" matched a 2014 count that rounds the same way. The comparator now reports
+  `value_as_of_year`, and a source more than `STALE_EVIDENCE_YEARS` behind can no
+  longer make a claim confirmed — it stays on the record with
+  「数字は合うが出典が古い」. A source that states no year is *not* assumed stale.
+  The first cut of this rule then misfired the other way: it held back the 8% tax
+  rate as a "2019 figure", rejecting 国税庁's own page marked 「令和7年4月1日現在
+  法令等」. A measurement dates; a rule holds until changed. `value_as_of_year` is
+  now for measured figures only (see D-019).
+- **The script came out with no narration at all.** `audio_text` was gated on the
+  shot-type guess being `interview`/`reaction`; on footage Gemini labels `other`
+  every spoken line was silently dropped. It is now gated on whether anyone
+  speaks — on-screen text lives in `visual_summary`, so a transcript means speech.
+
+Also: judging is one call per claim instead of one per source (10× fewer round
+trips), which is most of Next item 2 below.
+
+Tests: **35 passed**. `tests/test_verifiability.py` pins each fault above.
+
+⚠️ The Cloud Run deployment still runs the pre-fix code — this has not been
+redeployed.
 
 ## Next
-1. **Make the demo produce a confirmed claim reliably.** The tax-rate line
-   (8% takeaway / 10% eat-in) verifies against a tax-publisher source locally,
-   but extraction varies between runs and one production pass produced no
-   confirmed claim at all — so the "sourced first cut" promise was not visible
-   on screen. This is the single most important gap.
-2. **Speed.** A cold run takes ~4 minutes because Gemini watches four clips and
-   claim extraction is one call per segment. Batch the per-segment calls and
-   ship the analysis cache in the image (hash-keyed, so it is caching rather
-   than faking — the search, script and cut still run live).
-3. Volatility flags surfaced in the morning report UI
-4. Browser upload (footage paths are currently restricted to the bundled clips)
-5. English 3-minute demo video, submission package
+1. **Speed.** A cold run is still dominated by Gemini watching four clips. Ship
+   the analysis cache in the image (hash-keyed, so it is caching rather than
+   faking — search, script and cut still run live).
+2. Volatility flags surfaced in the morning report UI
+3. Browser upload (footage paths are currently restricted to the bundled clips)
+4. English 3-minute demo video, submission package
 
 ## Deployment notes
 - Project `clearslate-demo-2026`, region `asia-northeast1`, service `currentcut`

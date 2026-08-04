@@ -8,16 +8,28 @@ value all match. Anything less is not support. The same pass also extracts a
 `dated_qualifier` — an expiry or scheduled change stated in the source
 ("campaign price until Aug 31", "two more stores opening this month") — which
 is what makes the volatility flag useful rather than a restatement of
-"prices change".
+"prices change", and `value_as_of_year`, so a figure that was true a decade ago
+cannot confirm a claim spoken in the present tense.
+
+All the sources for one claim are judged in a single call. That is a speed fix
+(ten round trips became one) but not a licence to blur them: the model returns
+one verdict per source, and `_align` refuses to guess which source an unlabelled
+verdict belongs to.
 """
 from __future__ import annotations
 
 import re
+import time
 
 from pydantic import BaseModel, Field
 
+from .. import config
 from ..clients.gemini_client import gemini
 from ..models.schemas import Claim, ResearchResult
+
+
+_JUDGE_ATTEMPTS = 3
+_JUDGE_BACKOFF_SECONDS = 2.0
 
 
 class EvidenceJudgment(BaseModel):
@@ -27,22 +39,11 @@ class EvidenceJudgment(BaseModel):
     source_value: str = Field(default="", description="The value stated by the source, verbatim, or empty")
     source_is_primary: bool = Field(default=False, description="Official/first-party/government source rather than commentary")
     dated_qualifier: str = Field(default="", description="Any expiry, validity period or scheduled change stated in the source; empty if none")
+    value_as_of_year: int = Field(default=0, description="Year the source's figure describes (not the publication year); 0 if not stated")
     reason: str = Field(default="", description="One sentence")
 
 
-_PROMPT = """You verify facts for a TV news feature. Decide whether the SOURCE
-actually supports the CLAIM. Be strict: a shared number is NOT support.
-
-CLAIM (spoken on camera): {claim_text}
-CLAIM TYPE: {claim_type}
-
-SOURCE
-  title: {title}
-  domain: {domain}
-  published: {published}
-  excerpt: {excerpt}
-
-Answer:
+_RULES = """Answer for each source:
 - entity_match: is the source about the SAME company/product as the claim?
   A different company that happens to use the same number is NOT a match.
   If the claim does not name a specific entity, entity_match MUST be false —
@@ -57,6 +58,13 @@ Answer:
   entity_match is false.
 - attribute_match: does the source talk about the same attribute?
 - value_match: does the source state the SAME value as the claim?
+  When the claim is explicitly approximate ("およそ", "約", "ほど", "around",
+  "roughly"), the speaker is rounding, and a source figure that rounds to the
+  claimed value AT THE CLAIM'S OWN PRECISION is a match: "およそ5万6千店" is
+  supported by an official 55,979 and NOT by 52,010. When the claim states an
+  exact value, the source must state that exact value.
+  If the source discusses the right subject and attribute but the excerpt never
+  states a figure, value_match is false — do not infer it.
 - source_value: the value the source states, verbatim ("" if none).
 - source_is_primary: true only for the subject's own official page, an IR/press
   release, or a government/public statistics source.
@@ -69,31 +77,135 @@ Answer:
   Do NOT return historical background dates, when a rule was originally
   introduced, publication dates of the article, or anything already in the past
   with no bearing on whether the figure is still current.
+- value_as_of_year: for a MEASURED figure — something counted, surveyed or
+  observed at a moment in time — the year that measurement describes, as stated
+  by the source ("2014年度末時点の55,774店" → 2014). Not the year the article was
+  published or updated. 0 if the source does not say.
+  Return 0 for a RULE that is in force: a tax rate, a statutory fee, a legal
+  limit, a standard. A rate introduced in 2019 and still applying today is not a
+  2019 figure — it is the current rate, and the year it came in says nothing
+  about whether it still holds. Only give a year here if the source itself says
+  the rule has since changed or is about to.
 - reason: one sentence.
 
 Support requires entity_match AND attribute_match AND value_match to all be true."""
 
 
-def judge(claim: Claim, result: ResearchResult) -> EvidenceJudgment:
+class _BatchJudgment(EvidenceJudgment):
+    source_index: int = Field(default=-1, description="Index of the source being judged")
+
+
+class _BatchJudgments(BaseModel):
+    judgments: list[_BatchJudgment]
+
+
+_BATCH_PROMPT = """You verify facts for a TV news feature. For EACH source below,
+decide whether it actually supports the CLAIM. Be strict: a shared number is NOT
+support. Judge every source independently and return one judgment per source,
+with source_index set to that source's number.
+
+CLAIM (spoken on camera): {claim_text}
+CLAIM TYPE: {claim_type}
+
+SOURCES
+{sources}
+
+{rules}"""
+
+
+def judge_all(claim: Claim, results: list[ResearchResult]) -> list[EvidenceJudgment]:
+    """One call for every source of a claim, rather than one call per source.
+
+    Ten separate calls per claim made a run take minutes and gave the comparator
+    no way to see that two sources disagree. The judgments stay independent —
+    the prompt asks for one verdict per source — but they cost one round trip.
+    """
+    if not results:
+        return []
     if gemini.mock:
-        return _mock_judge(claim, result)
-    try:
-        judgment = gemini.structured(
-            _PROMPT.format(
-                claim_text=claim.claim_text,
-                claim_type=claim.claim_type,
-                title=result.source_title,
-                domain=result.source_domain,
-                published=result.published_at or "unknown",
-                excerpt=result.excerpt[:1500],
-            ),
-            EvidenceJudgment,
+        return [_mock_judge(claim, r) for r in results]
+
+    blocks = []
+    for i, r in enumerate(results):
+        blocks.append(
+            f"[{i}] title: {r.source_title}\n"
+            f"    domain: {r.source_domain}\n"
+            f"    published: {r.published_at or 'unknown'}\n"
+            f"    excerpt: {r.excerpt[:config.EXCERPT_JUDGE_CHARS]}"
         )
-    except Exception:
-        # Verification failure must never become support.
-        return EvidenceJudgment(entity_match=False, attribute_match=False,
-                                value_match=False, reason="verification failed; not counted as support")
-    return judgment
+    prompt = _BATCH_PROMPT.format(
+        claim_text=claim.claim_text,
+        claim_type=claim.claim_type,
+        sources="\n\n".join(blocks),
+        rules=_RULES,
+    )
+    # A transient API error used to wipe out every source for a claim and read
+    # exactly like "no source supported it" — which is how the demo lost its
+    # sourced line. Retry, then say plainly that the check did not run.
+    # A reply that comes back but lands on no source at all is the same outage
+    # wearing a 200, so it is retried on the same terms rather than accepted.
+    last_error = "no verdict returned for this source"
+    for attempt in range(_JUDGE_ATTEMPTS):
+        try:
+            aligned = _align(gemini.structured(prompt, _BatchJudgments).judgments, len(results))
+            if not all(map(did_not_run, aligned)):
+                return aligned
+        except Exception as exc:
+            last_error = f"{type(exc).__name__}: {exc}"[:200]
+        if attempt + 1 < _JUDGE_ATTEMPTS:
+            time.sleep(_JUDGE_BACKOFF_SECONDS * (attempt + 1))
+
+    # Verification failure must never become support.
+    return [_failed_judgment(last_error) for _ in results]
+
+
+def _align(judgments: list[_BatchJudgment], count: int) -> list[EvidenceJudgment]:
+    """Line the model's verdicts up with the sources they were about.
+
+    The model often omits source_index altogether, and keying purely on it
+    discarded every judgment in the batch — the whole run then read as "nothing
+    supports any of this". So: if any verdict carries an index, indices are
+    authoritative and a source without one is simply unjudged. If none do, fall
+    back to position, and only when the counts agree exactly — a short list of
+    unlabelled verdicts tells us nothing about which sources they describe, and
+    guessing would attach a verdict to the wrong source.
+    """
+    indexed = {j.source_index: j for j in judgments if j.source_index >= 0}
+    positional = judgments if not indexed and len(judgments) == count else []
+
+    out: list[EvidenceJudgment] = []
+    for i in range(count):
+        j = indexed.get(i) or (positional[i] if positional else None)
+        # A source the model returned no verdict for is unjudged, and unjudged
+        # is not support.
+        out.append(EvidenceJudgment(**j.model_dump(exclude={"source_index"}))
+                   if j else _failed_judgment("no verdict returned for this source"))
+    return out
+
+
+# EvidenceJudgment doubles as the Gemini response schema, so a "did the check
+# run" flag cannot live on it — the model would fill it in. The reason carries
+# the distinction instead, and `did_not_run` is the one place that reads it.
+NOT_RUN_PREFIX = "verification did not run"
+
+
+def _failed_judgment(error: str = "") -> EvidenceJudgment:
+    detail = f" ({error})" if error else ""
+    return EvidenceJudgment(
+        entity_match=False, attribute_match=False, value_match=False,
+        reason=f"{NOT_RUN_PREFIX}{detail}; not counted as support")
+
+
+def did_not_run(judgment: EvidenceJudgment) -> bool:
+    """True when the comparator never reached a verdict. Distinct from "checked
+    and found no support" — the director must not read an outage as a finding."""
+    return judgment.reason.startswith(NOT_RUN_PREFIX)
+
+
+# There is deliberately no single-source `judge()`. It would need its own copy
+# of the rules, and two comparator prompts in a repo whose product claim is
+# traceability is two answers waiting to disagree. `judge_all` handles one
+# source as happily as ten.
 
 
 def supports(judgment: EvidenceJudgment) -> bool:

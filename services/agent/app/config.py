@@ -77,6 +77,16 @@ DEMO_ASSETS_DIR = (
 
 PARALLEL_BASE_URL = os.getenv("PARALLEL_BASE_URL", "https://api.parallel.ai")
 PARALLEL_MAX_SEARCHES_PER_RUN = int(os.getenv("PARALLEL_MAX_SEARCHES_PER_RUN", "20"))
+# Text budget per search. The default returns snippets far too short to contain
+# the figure being checked, which makes every claim look unsupported.
+PARALLEL_MAX_CHARS_TOTAL = int(os.getenv("PARALLEL_MAX_CHARS_TOTAL", "40000"))
+# Kept per page, and how much of it the evidence comparator reads. The figure is
+# often well past the first paragraph, so both are far above the old 500.
+EXCERPT_STORE_CHARS = int(os.getenv("CURRENTCUT_EXCERPT_STORE_CHARS", "6000"))
+EXCERPT_JUDGE_CHARS = int(os.getenv("CURRENTCUT_EXCERPT_JUDGE_CHARS", "6000"))
+# How far back a source's own as-of year may be and still confirm a claim being
+# spoken in the present tense on air.
+STALE_EVIDENCE_YEARS = int(os.getenv("CURRENTCUT_STALE_EVIDENCE_YEARS", "3"))
 GEMINI_MAX_CLIP_SECONDS = int(os.getenv("GEMINI_MAX_CLIP_SECONDS", "600"))
 
 FFMPEG = os.getenv("FFMPEG_BIN", "ffmpeg")

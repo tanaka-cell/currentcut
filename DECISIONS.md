@@ -109,3 +109,82 @@ Briefly relaxed so that verification would fire at all; the real cause was the
 LLM over-labeling ordinary on-camera statements, since fixed in the prompt.
 External search is PUBLIC-only again. Fail-closed is the product's claim, and
 loosening it to make a demo work is the wrong trade.
+
+## 2026-08-04 — D-016: A claim is labelled by *who publishes it*, not by who says it
+The demo kept finishing with no sourced line at all. The cause was that "うちも、
+お持ち帰りは八パーセント" — the national reduced consumption-tax rate, stated in the
+first person — was filed as the speaker's own private figure and therefore never
+checked. That removed the one claim with a government source behind it, in three
+runs out of three.
+
+`Claim.verifiability` replaces the old `about_speakers_own_business` boolean with
+three cases, because two of them are unverifiable for different reasons and the
+caption a director writes differs:
+- `public_record` — published somewhere public. **A statutory or nationally-set
+  figure stays public even when spoken in the first person**: the speaker does
+  not set the tax rate, so the subject is the rate, not their shop.
+- `own_business` — only the speaker knows (their takings, their headcount).
+- `unidentified_subject` — real but unnamed ("this shopping street"), so no
+  source can ever be about the same entity.
+
+Only `public_record` is searched. An unrecognised label falls back to
+unsearchable: a claim wrongly held back costs the director one hand-written
+caption, while a claim wrongly sent out puts an unrelated page on screen as
+evidence. All three kinds are still extracted — an unverifiable claim was still
+said on camera and still needs a caption.
+
+## 2026-08-04 — D-017: Retrieval has to reach the page that states the number
+Every judgment was honestly reporting "the source does not state the value", and
+it was right: `basic` mode without a text budget returned 42–299 characters per
+page. Two changes, both measured before adopting:
+- `max_chars_total` set explicitly (~24,500 chars returned, 4 of 10 pages
+  carrying the figure, including the industry association's own page).
+- The extractor emits a second query aimed at **whoever publishes the fact**
+  (国税庁, 日本フランチャイズチェーン協会), not just topic keywords.
+`mode="advanced"` was tried and is *worse* here — shorter excerpts, fewer pages
+with the figure. Kept `basic`.
+
+Both queries pass the egress gate individually, and the `objective` field is
+built from the gated queries alone. It is outbound text too, and building it
+from the claim would have sent transcript wording out through a field nobody was
+watching.
+
+## 2026-08-04 — D-018: An outage is not a finding
+A transient 503 from the comparator wiped a claim's evidence and reported it as
+"nothing supports this" — indistinguishable, to a director, from a checked and
+unsupported claim. Verification now retries, and a claim whose check never ran
+carries `verification_error` and says so.
+
+The same class of bug hid a worse one: batch verdicts were keyed on the
+`source_index` the model echoes back, which Gemini routinely omits, so *every*
+verdict in a batch was silently discarded. `_align()` now uses indices when they
+are present and position only when no verdict is labelled and the counts agree
+exactly. A short list of unlabelled verdicts says nothing about which sources it
+describes, and attaching one to the wrong source puts the wrong citation on air.
+
+## 2026-08-04 — D-019: A matching figure from years ago does not confirm "now"
+"There are about 56,000 of them now" was being marked confirmed by a 2014 count
+that rounds the same way. The match is genuine and the source is real; it simply
+says nothing about air day. The comparator now reports `value_as_of_year` (the
+year the *figure* describes, not the publication date), and a source further back
+than `STALE_EVIDENCE_YEARS` can no longer make a claim confirmed. It stays on the
+record with 「数字は合うが出典が古い」 so the director can go find the current
+release. A source that states no year is **not** assumed stale — absence of a
+date is not evidence of age.
+
+The first version of this rule misfired on **statutory rates**: the 8% reduced
+consumption-tax rate came back as a "2019 figure" and was held back as stale,
+even from 国税庁's own page marked 「令和7年4月1日現在法令等」. A measurement and a
+rule age differently. A store count is taken at a moment and goes out of date; a
+rate holds until it is changed, so the year it came in says nothing about
+whether it still applies. `value_as_of_year` is therefore for measured figures
+only, and is 0 for a rule in force unless the source itself says it has changed
+or is about to.
+
+## 2026-08-04 — D-020: Speech is decided by whether anyone speaks
+`audio_text` was populated only when the shot-type classifier said `interview` or
+`reaction`. On footage it labels `other` — which is most footage it has not seen
+before — every spoken line was dropped and the script came out with no narration
+at all, while still looking structurally complete. It is now keyed on the segment
+having a transcript. On-screen text goes to `visual_summary`, so a transcript
+means someone spoke; shot type governs ordering only.

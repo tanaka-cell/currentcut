@@ -17,6 +17,18 @@ _SHOT_ORDER = {"exterior": 0, "broll": 1, "interview": 2, "reaction": 3, "other"
 _REACTION_FIRST_ORDER = {"reaction": 0, "interview": 1, "exterior": 2, "broll": 3, "other": 4}
 
 
+def _spoken(seg: Segment) -> str:
+    """The words this segment contributes to the script.
+
+    Keyed off whether anyone actually speaks, not off the shot-type guess. Shot
+    type is a classifier's opinion about framing; when it lands on "other" —
+    which it does on anything it has not seen before — gating the words on it
+    silently produces a script with no dialogue in it at all. On-screen text
+    goes to `visual_summary`, so a transcript means speech.
+    """
+    return seg.transcript if seg.transcript.strip() else ""
+
+
 def _write_to_corner_format(project: Project, style, airable: list[Segment],
                             claims: list[Claim], research: list[ResearchResult]) -> list[ScriptLine]:
     """Fill the corner's running order, block by block, from this shoot.
@@ -67,7 +79,7 @@ def _write_to_corner_format(project: Project, style, airable: list[Segment],
             project_id=project.id, order=len(lines),
             start_seconds=round(cursor, 2), end_seconds=round(cursor + duration, 2),
             visual_instruction=f"［{block.role}］{match.visual_summary or match.shot_type}",
-            audio_text=match.transcript if match.shot_type in ("interview", "reaction") else "",
+            audio_text=_spoken(match),
             caption_text=_caption_for(match, featured, research_by_claim),
             asset_id=match.asset_id, segment_id=match.id,
             source_in_seconds=match.start_seconds,
@@ -146,7 +158,7 @@ def write_script(
             start_seconds=round(cursor, 2),
             end_seconds=round(cursor + seg_duration, 2),
             visual_instruction=seg.visual_summary or seg.shot_type,
-            audio_text=seg.transcript if seg.shot_type in ("interview", "reaction") else "",
+            audio_text=_spoken(seg),
             caption_text=caption,
             asset_id=seg.asset_id,
             segment_id=seg.id,

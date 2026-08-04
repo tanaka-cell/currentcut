@@ -86,16 +86,41 @@ class Segment(BaseModel):
     allow_external_search: bool = False
 
 
+class Verifiability(str, Enum):
+    """Why a claim can — or can never — be settled against the public web.
+
+    A claim no public source could ever settle must not be searched: the search
+    comes back with pages that merely share a number, and the director is shown
+    noise dressed as evidence. Which kind of unverifiable it is matters, because
+    the caption the director has to write differs.
+    """
+    # Published somewhere public: national statistics, statutory rates, an
+    # organisation's own official figures. First person or not.
+    PUBLIC_RECORD = "public_record"
+    # Only the speaker knows: their own takings, headcount, customer numbers.
+    OWN_BUSINESS = "own_business"
+    # Refers to something with no public name ("this shopping street"), so no
+    # source can be about the same entity.
+    UNIDENTIFIED_SUBJECT = "unidentified_subject"
+
+
 class Claim(BaseModel):
     id: str = Field(default_factory=lambda: new_id("clm"))
     segment_id: str
     claim_text: str
     claim_type: str = "other"  # store_count | price | release_date | stat | superlative | popularity | other
     volatility: str = "medium"  # high | medium | low
+    verifiability: Verifiability = Verifiability.PUBLIC_RECORD
     safe_search_query: Optional[str] = None
+    # More angles on the same claim. One keyword query rarely surfaces the page
+    # that states the figure; naming the likely publisher usually does.
+    extra_search_queries: list[str] = []
     allow_external_search: bool = False
     requires_human_approval: bool = False
     verification_status: EvidenceStatus = EvidenceStatus.UNVERIFIED
+    # Set only when the check could not be performed at all (API failure), so a
+    # provider outage is never presented to the director as "nothing supports it".
+    verification_error: str = ""
     last_checked_at: str = ""
     # Volatility flag: surfaced to the director before the structure is locked.
     # `volatility_note` is only set when a source states an actual expiry or
@@ -121,6 +146,9 @@ class ResearchResult(BaseModel):
     attribute_match: bool = False
     source_value: str = ""
     dated_qualifier: str = ""  # expiry / validity / scheduled change stated by the source
+    # Year the figure describes, per the source. A 2014 store count is a real
+    # figure and a true match, but it does not confirm what is true on air day.
+    value_as_of_year: int = 0
     judgment_reason: str = ""
     confidence: float = 0
     retrieved_at: str = Field(default_factory=now_iso)

@@ -75,8 +75,16 @@ class ParallelClient:
         segment: Segment,
         after_date: str | None = None,
     ) -> list[ResearchResult]:
-        query = claim.safe_search_query or ""
-        allowed, reason = egress_check(claim, segment, query)
+        # A keyword query finds pages *about* the subject; a query naming the
+        # likely publisher finds the page that actually states the figure. Both
+        # go out in one call, and every one of them passes the gate first.
+        queries = [q for q in [claim.safe_search_query, *claim.extra_search_queries] if q]
+        query = " | ".join(queries)  # what the Egress Log records verbatim
+        allowed, reason = True, "ok"
+        for q in queries or [""]:
+            allowed, reason = egress_check(claim, segment, q)
+            if not allowed:
+                break
 
         def record(status: str, reason: str, phase: str = "attempt",
                    attempt_id: str = "", result_count: int = 0) -> EgressLog:
@@ -103,7 +111,8 @@ class ParallelClient:
         self.calls_this_run += 1
 
         try:
-            response = self._mock_search(query) if self.mock else self._real_search(query, after_date)
+            response = (self._mock_search(query) if self.mock
+                        else self._real_search(queries, after_date))
         except Exception as exc:
             record("failed", str(exc)[:200], phase="outcome", attempt_id=attempt.id)
             raise
@@ -118,22 +127,29 @@ class ParallelClient:
                 source_title=page.title,
                 source_domain=urlparse(page.url).netloc,
                 published_at=page.published_at,
-                excerpt=page.excerpt[:500],
+                excerpt=page.excerpt[:config.EXCERPT_STORE_CHARS],
                 source_type=self._source_type(page.url),
             ))
         return results
 
     _sdk_client = None
 
-    def _real_search(self, query: str, after_date: str | None) -> SearchResponse:
+    def _real_search(self, queries: list[str], after_date: str | None) -> SearchResponse:
         from parallel import Parallel  # official SDK, imported lazily
 
         if self._sdk_client is None:
             type(self)._sdk_client = Parallel(api_key=config.PARALLEL_API_KEY)
+        # The objective is outbound too, so it is built from the gated queries
+        # and nothing else — never from the claim or the transcript.
         kwargs: dict = {
-            "objective": f"Verify for a TV news feature: {query}",
-            "search_queries": [query],
+            "objective": "Find the source that states this figure for a TV news "
+                         f"feature, and quote it: {' / '.join(queries)}",
+            "search_queries": queries,
             "mode": "basic",
+            # Without a budget the API returns snippets too short to contain the
+            # number, and every claim then reads as "the source does not state
+            # the value". Measured: 42–299 chars per page unset, ~2,500 with it.
+            "max_chars_total": config.PARALLEL_MAX_CHARS_TOTAL,
         }
         if after_date:
             kwargs["advanced_settings"] = {"source_policy": {"after_date": after_date}}
