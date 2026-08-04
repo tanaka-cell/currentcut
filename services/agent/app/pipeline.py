@@ -33,7 +33,7 @@ def _record(project_id: str, agent_name: str, provider: str, model_or_tool: str,
     try:
         result = fn()
         run.status = "completed"
-        run.output_summary = _summarize(result)
+        run.output_summary = _summarize(agent_name, result)
         return result
     except Exception as exc:
         run.status = "failed"
@@ -45,12 +45,45 @@ def _record(project_id: str, agent_name: str, provider: str, model_or_tool: str,
         store.put(project_id, "agent_runs", run)
 
 
-def _summarize(result) -> str:
-    if isinstance(result, list):
-        return f"{len(result)} items"
+def _plural(n: int, one: str, many: str = "") -> str:
+    return f"{n} {one if n == 1 else (many or one + 's')}"
+
+
+def _summarize(agent_name: str, result) -> str:
+    """What this step actually found, in words a director would use.
+
+    Every step used to report "N items" — which told a reader nothing, and said
+    "1 items" when there was one of them. This is the only place the run's
+    progress is described, so it is worth saying something.
+    """
     if isinstance(result, dict):
+        if "duration_seconds" in result:
+            return (f"{result['duration_seconds']:.0f}s cut from "
+                    f"{_plural(result.get('lines_used', 0), 'line')}")
         return ", ".join(f"{k}={v}" for k, v in list(result.items())[:4])
-    return str(result)[:200]
+
+    if not isinstance(result, list):
+        return str(result)[:200]
+
+    n = len(result)
+    if agent_name == "footage_logger":
+        speech = sum(1 for s in result if getattr(s, "transcript", "").strip())
+        return f"{_plural(n, 'segment')}, {speech} with speech"
+    if agent_name == "confidentiality":
+        held = sum(1 for s in result if not getattr(s, "allow_script_use", True))
+        return (f"{_plural(n, 'segment')} labelled"
+                + (f", {held} held back" if held else ", none held back"))
+    if agent_name == "claim_extraction":
+        checkable = sum(1 for c in result if getattr(c, "allow_external_search", False))
+        return f"{_plural(n, 'claim')}, {checkable} checkable against public sources"
+    if agent_name == "parallel_research":
+        return f"{_plural(n, 'source')} retrieved and judged"
+    if agent_name == "scriptwriter":
+        return _plural(n, "script line")
+    if agent_name == "telop_draft":
+        sourced = sum(1 for t in result if getattr(t, "source_note", ""))
+        return f"{_plural(n, 'caption')}, {sourced} carrying a source"
+    return _plural(n, "item")
 
 
 # ---------- individual steps (also exposed as ADK tools) ----------

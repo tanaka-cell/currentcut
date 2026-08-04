@@ -10,3 +10,8 @@ pytest>=8.2
 openpyxl>=3.1
 python-multipart>=0.0.9
 pillow>=10.0
+# Reading a programme's own order form: .docx templates and PDF/paper scans.
+# Imported lazily in house_style.py and telop_form.py — absent from a clean
+# checkout, those features failed at import rather than at install.
+pymupdf>=1.24
+python-docx>=1.1

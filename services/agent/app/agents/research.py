@@ -51,6 +51,7 @@ def research_claims(
             r.dated_qualifier = judgment.dated_qualifier
             r.value_as_of_year = judgment.value_as_of_year
             r.contradicts_claim = judgment.contradicts_claim
+            r.claim_names_its_own_date = judgment.claim_names_its_own_date
             r.judgment_reason = judgment.reason
             # The model's opinion is recorded, never acted on. Asked whether a
             # source is primary it said yes for 7andi's own IR page (right), and
@@ -105,10 +106,18 @@ def research_claims(
 
 def _is_stale(result: ResearchResult) -> bool:
     """A source is stale when it states which year its figure describes and that
-    year is well behind us. A source that gives no as-of year is not assumed
-    stale — absence of a date is not evidence of age, and a rule still in force
-    reports no year at all (a rate introduced in 2019 is the current rate, not a
-    2019 figure; see the comparator's value_as_of_year instruction)."""
+    year is well behind us.
+
+    Three things are not staleness. A source that gives no as-of year — absence
+    of a date is not evidence of age. A rule still in force, which reports no
+    year at all (a rate introduced in 2019 is the current rate, not a 2019
+    figure). And a claim that fixes its own period: "the federal minimum wage
+    has not changed since 2009" was being held back because its evidence
+    described 2009, which is the whole point of the claim — and the evidence
+    discarded was the Department of Labor stating it word for word.
+    """
+    if result.claim_names_its_own_date:
+        return False
     if not result.value_as_of_year:
         return False
     return datetime.now(timezone.utc).year - result.value_as_of_year > config.STALE_EVIDENCE_YEARS

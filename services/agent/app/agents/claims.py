@@ -187,10 +187,25 @@ def _seen_before(claim_text: str, claim_type: str, claims: list[Claim]) -> bool:
     return False
 
 
+def _mentions(claim_text: str, subject: str) -> bool:
+    """Is the subject already in the claim, however it happens to be written?
+
+    An exact substring test said no to subject "small businesses in this
+    country" inside "Small businesses in this country employ almost half of the
+    private workforce" — because of one capital letter — and the caption went
+    out reading "small businesses in this country: Small businesses in this
+    country employ almost half…".
+    """
+    def norm(s: str) -> str:
+        return re.sub(r"[\s　、。,.:：'’\"()（）-]+", "", s).casefold()
+
+    return norm(subject) in norm(claim_text)
+
+
 def _with_subject(claim_text: str, subject: str) -> str:
     """Belt and braces: if the model still returned a subjectless claim, prefix
     the subject it identified. A claim with no subject verifies against anything."""
-    if not subject or subject in claim_text:
+    if not subject or _mentions(claim_text, subject):
         return claim_text
     return f"{subject}: {claim_text}"
 

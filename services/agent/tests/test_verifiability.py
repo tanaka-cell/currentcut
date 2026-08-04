@@ -377,3 +377,37 @@ def test_an_unlabelled_short_list_is_never_guessed_into_place():
 
     aligned = _align([_verdict(), _verdict()], 3)
     assert all(map(did_not_run, aligned))
+
+
+def test_a_claim_that_names_its_own_date_cannot_be_stale(monkeypatch):
+    """"The federal minimum wage has not changed since 2009" was held back
+    because its evidence described 2009 — which is the whole point of the claim.
+    The evidence discarded was the Department of Labor stating it word for word:
+    "the federal minimum wage is $7.25 per hour effective July 24, 2009"."""
+    from app.agents.evidence import EvidenceJudgment
+    from app.models.schemas import ResearchResult
+
+    claim = _research_with(
+        monkeypatch,
+        [EvidenceJudgment(entity_match=True, attribute_match=True, value_match=True,
+                          source_is_primary=True, claim_names_its_own_date=True,
+                          source_value="$7.25 per hour effective July 24, 2009",
+                          value_as_of_year=2009, reason="states the claim verbatim")],
+        [ResearchResult(claim_id="", source_url="https://www.dol.gov/agencies/whd")])
+    assert claim.verification_status.value.endswith("CONFIRMED")
+    assert claim.volatility_note == ""
+
+
+def test_a_present_tense_claim_is_still_judged_for_staleness(monkeypatch):
+    """The exemption is for claims that name their own period, not for old
+    evidence generally."""
+    from app.agents.evidence import EvidenceJudgment
+    from app.models.schemas import ResearchResult
+
+    claim = _research_with(
+        monkeypatch,
+        [EvidenceJudgment(entity_match=True, attribute_match=True, value_match=True,
+                          source_is_primary=True, claim_names_its_own_date=False,
+                          source_value="55,774", value_as_of_year=2014, reason="2014 count")],
+        [ResearchResult(claim_id="", source_url="https://www.stat.go.jp/a")])
+    assert not claim.verification_status.value.endswith("CONFIRMED")

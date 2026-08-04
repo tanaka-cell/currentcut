@@ -179,3 +179,17 @@ def test_the_script_line_says_the_credit_is_missing():
                  {claim.id: [_result("https://stripe.com/a", "web", claim_id=claim.id)]})
     assert "no primary source" in note.lower()
     assert "stripe.com" in note
+
+
+# ---- a caption must not say the subject twice ------------------------------
+
+def test_a_subject_already_in_the_claim_is_not_prefixed_again():
+    """An exact substring test said no to "small businesses in this country"
+    inside "Small businesses in this country employ almost half…" — one capital
+    letter — and the caption went out saying it twice."""
+    from app.agents.claims import _with_subject
+
+    said = "Small businesses in this country employ almost half of the private workforce."
+    assert _with_subject(said, "small businesses in this country") == said
+    assert _with_subject("持ち帰りの消費税率は8%です", "持ち帰りの消費税率") == "持ち帰りの消費税率は8%です"
+    assert _with_subject("The rate is 8%", "the reduced tax rate") == "the reduced tax rate: The rate is 8%"

@@ -40,8 +40,9 @@ a Google ADK workflow:
 | Temp narration | Google Cloud Text-to-Speech |
 | Everything else | FFmpeg, FastAPI, Next.js, Firestore/local JSON, Cloud Run |
 
-No Anthropic/OpenAI/AWS/other AI APIs at runtime. Claude Code is used for
-development only.
+The application calls exactly two AI services at runtime: Gemini on Google
+Cloud, and the Parallel Search API. No other AI service, model API or agent
+framework is invoked by the product. See COMPLIANCE.md.
 
 ## Phases
 

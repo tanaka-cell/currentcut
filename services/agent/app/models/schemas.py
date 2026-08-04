@@ -182,6 +182,9 @@ class ResearchResult(BaseModel):
     # The source makes the claim false — not merely "did not support it".
     # Inferring one from the other put a broadcast warning on a true line.
     contradicts_claim: bool = False
+    # The claim fixes its own period ("unchanged since 2009"), so evidence from
+    # that period is the right evidence and cannot be stale.
+    claim_names_its_own_date: bool = False
     judgment_reason: str = ""
     confidence: float = 0
     retrieved_at: str = Field(default_factory=now_iso)

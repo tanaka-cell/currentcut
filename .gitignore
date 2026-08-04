@@ -19,3 +19,9 @@ services/agent/output/
 .mypy_cache/
 .DS_Store
 Thumbs.db
+
+# Internal review archive: external-AI review tooling and its transcripts.
+# Not part of the product. Kept on disk, out of the published repository —
+# a compliance screen that greps the repo should not have to tell the
+# difference between a review script and a runtime dependency.
+_review/

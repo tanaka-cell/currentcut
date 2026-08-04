@@ -227,3 +227,30 @@ def test_government_domains_are_recognised_beyond_japan():
                 "https://stripe.com/guides/tax",
                 "https://en.wikipedia.org/wiki/Coffee"):
         assert P._source_type(url) != "government", url
+
+
+# ---- the run must describe itself in words -------------------------------
+
+def test_each_step_says_what_it_found_not_how_many_items(overnight_run_en):
+    """Every step reported "N items", which told a judge watching the run
+    nothing at all — and said "1 items" when there was one of them."""
+    from app.models.schemas import AgentRun
+    from app.storage import store
+
+    project_id, _ = overnight_run_en
+    summaries = [r.output_summary for r in store.list(project_id, "agent_runs", AgentRun)
+                 if r.output_summary]
+    assert summaries
+    for s in summaries:
+        assert "items" not in s, f"still speaking in items: {s}"
+        assert not s.startswith("1 ") or " 1 " not in s or "1 s" not in s
+    joined = " ".join(summaries)
+    assert "segment" in joined and "claim" in joined, joined
+
+
+def test_a_single_thing_is_not_plural():
+    from app.pipeline import _plural
+
+    assert _plural(1, "claim") == "1 claim"
+    assert _plural(2, "claim") == "2 claims"
+    assert _plural(1, "script line") == "1 script line"

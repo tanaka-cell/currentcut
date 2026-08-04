@@ -38,6 +38,7 @@ class EvidenceJudgment(BaseModel):
     value_match: bool = Field(description="Does the value in the source equal the value in the claim?")
     source_value: str = Field(default="", description="The value stated by the source, verbatim, or empty")
     contradicts_claim: bool = Field(default=False, description="Does the source state something that makes the claim FALSE?")
+    claim_names_its_own_date: bool = Field(default=False, description="Does the CLAIM itself specify the period it describes, so old evidence is the right evidence?")
     source_is_primary: bool = Field(default=False, description="Official/first-party/government source rather than commentary")
     dated_qualifier: str = Field(default="", description="Any expiry, validity period or scheduled change stated in the source; empty if none")
     value_as_of_year: int = Field(default=0, description="Year the source's figure describes (not the publication year); 0 if not stated")
@@ -86,6 +87,13 @@ _RULES = """Answer for each source:
   Do NOT return historical background dates, when a rule was originally
   introduced, publication dates of the article, or anything already in the past
   with no bearing on whether the figure is still current.
+- claim_names_its_own_date: true when the CLAIM itself fixes the period it is
+  about — "unchanged since 2009", "in the year to March", "before the 2019
+  reform". Such a claim cannot go out of date, and a source describing that
+  period is exactly the right source for it: the Department of Labor's own page
+  saying "the federal minimum wage is $7.25 per hour effective July 24, 2009"
+  states the claim word for word. False for a claim in the present tense —
+  "there are about 56,000 of them now" — which needs current evidence.
 - value_as_of_year: for a MEASURED figure — something counted, surveyed or
   observed at a moment in time — the year that measurement describes, as stated
   by the source ("2014年度末時点の55,774店" → 2014). Not the year the article was
