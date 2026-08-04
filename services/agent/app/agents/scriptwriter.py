@@ -250,6 +250,8 @@ def _caption_for(seg: Segment, claim: Claim | None,
         # Checked, but with nobody worth naming. The figure still belongs on
         # screen; the attribution does not.
         return claim.claim_text
-    if seg.speaker and seg.shot_type == "interview":
-        return seg.speaker
+    # No speaker fallback: Gemini's speaker field is a description of what it
+    # saw ("Man in apron"), and printing a description where a name super
+    # belongs reads as a mistake, not a caption. The spoken line itself is
+    # burned into the preview as a temp subtitle by the rough cut instead.
     return ""

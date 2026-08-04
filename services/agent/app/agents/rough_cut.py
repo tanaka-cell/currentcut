@@ -80,14 +80,87 @@ def _ff_escape(text: str) -> str:
 # One line that fits the frame is the useful amount of it.
 CAPTION_CHARS = 68
 
+# The temp subtitle carries the spoken line, so it may wrap — but only so far.
+SUBTITLE_MAX_LINES = 2
+_SUB_WIDTH_SPACED = 54   # word-wrapped scripts (English)
+_SUB_WIDTH_CJK = 27      # character-wrapped scripts; CJK glyphs are twice as wide
+
 
 def _fit_caption(text: str) -> str:
+    """Trim a data caption to one line — from the middle, never the end.
+
+    The caption's payoff is its tail: "(Source: advocacy.sba.gov)". A plain
+    tail-trim once rendered "…(So…" on screen, which cut the one thing this
+    product adds. So when the text carries a bracketed source, the claim is
+    shortened and the source survives whole.
+    """
     text = " ".join(text.split())
-    return text if len(text) <= CAPTION_CHARS else text[:CAPTION_CHARS - 1].rstrip() + "…"
+    if len(text) <= CAPTION_CHARS:
+        return text
+    cut = max(text.rfind("("), text.rfind("（"))
+    if cut > 0:
+        suffix = text[cut:]
+        room = CAPTION_CHARS - len(suffix) - 2
+        if room >= 12:  # enough claim left to still mean something
+            return text[:room].rstrip() + "… " + suffix
+    return text[:CAPTION_CHARS - 1].rstrip() + "…"
 
 
-def _drawtext_caption(text: str, out_dir: Path, index: int) -> str:
-    """drawtext reads the caption from a file, never from the filter string.
+def _is_cjk(text: str) -> bool:
+    return any("　" <= ch <= "鿿" or "＀" <= ch <= "￯" for ch in text)
+
+
+# A figure split across lines becomes a different figure: "10" / "%" reads as
+# ten, "5万6" / "000店" reads as three numbers. Same rule the telop sheet
+# enforces, applied to the burned subtitle.
+_NUM = set("0123456789０１２３４５６７８９.,%％万億兆")
+_TRAIL = set("店円人年歳件本社台か国")  # counters that belong to their figure
+
+
+def _breaks_a_figure(before: str, after: str) -> bool:
+    return before in _NUM and (after in _NUM or after in _TRAIL)
+
+
+def _wrap_cjk(text: str, width: int) -> list[str]:
+    """Character-wrap, backing the break off any figure it would split."""
+    lines: list[str] = []
+    while text:
+        if len(text) <= width:
+            lines.append(text)
+            break
+        cut = width
+        while cut > width - 8 and _breaks_a_figure(text[cut - 1], text[cut]):
+            cut -= 1
+        lines.append(text[:cut])
+        text = text[cut:]
+    return lines
+
+
+def _wrap_subtitle(text: str) -> str:
+    """The spoken line, wrapped to at most two on-screen lines.
+
+    English wraps at spaces; Japanese has none, so it wraps by character count.
+    Anything past two lines is cut with an ellipsis — a preview subtitle that
+    fills the frame stops being a subtitle.
+    """
+    text = " ".join(text.split())
+    if not text:
+        return ""
+    if _is_cjk(text):
+        lines = _wrap_cjk(text, _SUB_WIDTH_CJK)
+    else:
+        import textwrap
+        lines = textwrap.wrap(text, width=_SUB_WIDTH_SPACED)
+    if len(lines) > SUBTITLE_MAX_LINES:
+        lines = lines[:SUBTITLE_MAX_LINES]
+        lines[-1] = lines[-1].rstrip() + "…"
+    return "\n".join(lines)
+
+
+def _drawtext(text: str, out_dir: Path, name: str, *,
+              fontsize: int, color: str, y: str) -> str:
+    """One drawtext filter whose text comes from a file, never from the
+    filter string.
 
     Escaping it inline is a losing game: an apostrophe closes the quoted value
     and no amount of backslashes reopens it, so "small businesses' share" failed
@@ -99,19 +172,34 @@ def _drawtext_caption(text: str, out_dir: Path, index: int) -> str:
         return ""
     font = Path(config.FONT_FILE)
     fontopt = f"fontfile='{_ff_escape(font.as_posix())}':" if font.exists() else ""
-    caption_file = out_dir / f"caption_{index:03d}.txt"
-    caption_file.write_text(_fit_caption(text), encoding="utf-8")
+    text_file = out_dir / f"{name}.txt"
+    # newline="\n" matters on Windows: text mode turns \n into \r\n, and
+    # drawtext renders the carriage return as an extra empty line, doubling
+    # the spacing between subtitle lines.
+    text_file.write_text(text, encoding="utf-8", newline="\n")
     return (
-        f",drawtext={fontopt}textfile='{_ff_escape(caption_file.as_posix())}':"
-        f"fontsize=36:fontcolor=white:borderw=2:"
-        f"bordercolor=black:x=(w-text_w)/2:y=h-90"
+        # expansion=none: drawtext treats % as a template marker ("Stray %"
+        # warnings, and the glyph vanishes), and a tax-rate caption is exactly
+        # the text that contains one. Nothing here needs templating.
+        f",drawtext={fontopt}textfile='{_ff_escape(text_file.as_posix())}':"
+        f"expansion=none:fontsize={fontsize}:fontcolor={color}:borderw=2:"
+        f"bordercolor=black:x=(w-text_w)/2:y={y}:line_spacing=8"
     )
 
 
 def _cut_clip(src: Path, line: ScriptLine, dst: Path, index: int = 0) -> None:
     duration = line.source_out_seconds - line.source_in_seconds
-    vf = "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,fps=30" \
-         + _drawtext_caption(line.caption_text, dst.parent, index)
+    # Two layers, two jobs. Bottom, white: the spoken line, so the preview is
+    # watchable with the sound off. Above it, gold: the checked figure with its
+    # source — the one moment this product exists for, made visible.
+    vf = ("scale=1280:720:force_original_aspect_ratio=decrease,"
+          "pad=1280:720:(ow-iw)/2:(oh-ih)/2,fps=30"
+          + _drawtext(_wrap_subtitle(line.audio_text), dst.parent,
+                      f"sub_{index:03d}", fontsize=30, color="white",
+                      y="h-th-28")
+          + _drawtext(_fit_caption(line.caption_text), dst.parent,
+                      f"caption_{index:03d}", fontsize=32, color="0xFFD24A",
+                      y="h-th-136"))
     subprocess.run(
         [config.FFMPEG, "-y", "-loglevel", "error",
          "-ss", f"{line.source_in_seconds:.3f}", "-t", f"{duration:.3f}", "-i", str(src),
