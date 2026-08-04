@@ -37,7 +37,7 @@ See DECISIONS D-011/D-012.
 | ADK orchestration (gemini-2.5-pro) | ✅ | ✅ all 6 tools in order |
 | Parallel Search (`parallel-web` SDK) | ✅ | ✅ safe queries only; off-record query blocked and logged |
 | Google Cloud TTS narration | — | not started |
-| Cloud Run deploy | ✅ | ✅ **https://currentcut-317408545495.asia-northeast1.run.app** — one-click demo runs the real pipeline in the container (Gemini → Parallel → FFmpeg), keys from Secret Manager |
+| Cloud Run deploy | ✅ | ✅ rev `currentcut-00009-hq2`, **https://currentcut-317408545495.asia-northeast1.run.app** — one-click demo runs the real pipeline in the container (Gemini → Parallel → FFmpeg), keys from Secret Manager |
 
 ### What the trust fixes changed (measured on the same demo footage)
 | | Before | After |
@@ -208,25 +208,33 @@ one line off the edge of the frame, and English captions carried 「（出典: �
 
 Tests: **114 passed**.
 
-### Known rough edge
-Among primary sources the tie-break is alphabetical, so runs 3 and 4 credited
+### Known rough edges
+**Primary sources are ranked alphabetically.** Runs 3 and 4 credited
 `dol.georgia.gov` for the federal minimum wage where `www.dol.gov` was also
 available. A state labour department stating the federal rate is a true and
 citable source, but not the obvious one. Ranking primary sources by how directly
-they publish the fact in question needs a better idea than alphabetical.
+they publish the fact in question needs a better idea than sorting by URL.
+
+**A claim about the past is being judged for staleness.** "The federal minimum
+wage has not changed since 2009" comes back as "The figure matches, but only in
+2009 data" and carries no credit. The comparator is right that the figure it
+found describes 2009 — that is what the claim says. Staleness only means
+anything for a claim in the present tense; a claim that names its own date
+cannot be out of date. The stale rule needs to know the difference. (This is the
+same line that used to draw a false CONFLICTING, fixed in D-024 — the correction
+moved it from "wrong" to "over-cautious", which is the right direction to fail
+but not the end of it.)
 
 ## Next
-1. **Redeploy.** Cloud Run is still serving the code from before the English
-   shoot, the citation rule and both crash fixes.
-2. **Speed.** A cold run is still dominated by Gemini watching four clips (and
+1. **Speed.** A cold run is still dominated by Gemini watching four clips (and
    now sometimes twice, when the first reading is coarse). Ship the analysis
    cache in the image — it is now keyed on everything that determines the
    answer, so it is caching rather than faking.
-3. Surface `held_awaiting_your_decision` in the web UI — the API and the morning
+2. Surface `held_awaiting_your_decision` in the web UI — the API and the morning
    report carry it, the page does not show it yet.
-4. Browser upload (footage paths are currently restricted to the bundled clips)
-5. English 3-minute demo video, submission package
-6. 4-AI review of the whole submission — worth doing once the demo is stable,
+3. Browser upload (footage paths are currently restricted to the bundled clips)
+4. English 3-minute demo video, submission package
+5. 4-AI review of the whole submission — worth doing once the demo is stable,
    which it now is; reviewing an unstable demo would have meant four reviewers
    each seeing a different run.
 
