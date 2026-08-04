@@ -18,6 +18,28 @@
   h1{font-family:Georgia,"Times New Roman",serif;font-size:2.3rem;line-height:1.2;margin:0 0 .4rem;letter-spacing:-.01em}
   h2{font-family:Georgia,serif;font-size:1.35rem;margin:2.75rem 0 .9rem;font-weight:600}
   .tagline{font-size:1.1rem;color:var(--ink-soft);margin:0 0 1.5rem}
+  .brand{font-family:Georgia,"Times New Roman",serif;font-size:1.15rem;font-weight:700;margin:0 0 1.5rem}
+  .brand span{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+              font-weight:400;font-size:.85rem;color:var(--ink-faint)}
+  .hero{display:grid;grid-template-columns:45fr 55fr;gap:2.75rem;align-items:start}
+  @media(max-width:920px){.hero{grid-template-columns:1fr}}
+  .preview-head{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;
+                color:var(--ink-faint);margin:0 0 .55rem}
+  .preview .frame{margin:0;border:1px solid var(--line);border-radius:4px;overflow:hidden;
+                  background:#000;box-shadow:0 12px 28px rgba(31,29,26,.14)}
+  .preview .frame img{display:block;width:100%;height:auto}
+  .hero>*{min-width:0}
+  .pcards{display:grid;grid-template-columns:1fr 1.2fr;gap:.75rem;margin-top:.75rem}
+  @media(max-width:520px){.pcards{grid-template-columns:1fr}}
+  .pcard{background:var(--card);border:1px solid var(--line);border-radius:4px;
+         padding:.65rem .8rem;font-size:.78rem;line-height:1.5}
+  .pcard .ptitle{display:block;font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;
+                 color:var(--ink-faint);margin-bottom:.35rem;font-weight:600}
+  .pcard ul{list-style:none;margin:0;padding:0}
+  .pcard li{padding:.1rem 0}
+  .pcard .p-ok{color:var(--ok)} .pcard .p-warn{color:var(--warn)}
+  .pcard .p-src{font-family:var(--mono);font-size:.68rem;color:var(--accent)}
+  .preview-note{font-size:.75rem;color:var(--ink-faint);margin-top:.65rem}
   .lede{max-width:62ch;color:var(--ink-soft)}
   .lede strong{color:var(--ink)}
   .cta{margin:2rem 0 .5rem}
@@ -77,61 +99,91 @@
 <body>
 <div class="wrap">
 
-  <h1>CurrentCut</h1>
-  <p class="tagline">Rest after the shoot. Wake up to a source-linked first cut
-    for TV directors — unchecked claims clearly marked, held-back moments
-    shown for review.</p>
+  <div class="hero">
+  <div>
+    <p class="brand">CurrentCut <span>— the overnight AI edit desk for factual TV</span></p>
+    <h1>Long day? I've got the night shift.</h1>
+    <p class="tagline">Hand over tonight's footage and go rest. By morning there is
+      a first cut whose <strong>factual lines link to the sources checked — or say
+      why none is attached</strong> — with every held-back moment on record for
+      your review.</p>
 
-  <p class="lede">
-    After a factual-TV shoot, the director's night shift begins: logging
-    footage, protecting off-record moments, checking claims, and building the
-    story before the edit. CurrentCut runs that workflow overnight. By morning,
-    it delivers a rough cut whose <strong>factual lines link to the sources
-    checked — or state why none is attached — plus a reviewable record of
-    every segment held back.</strong>
-  </p>
+    <div class="cta">
+      <button id="run">Run the overnight demo</button>
+      <div class="hint">
+        Runs for real — nothing here is pre-generated. Gemini watches the clips, the
+        Parallel Search API checks the claims that clear the confidentiality gate, and
+        FFmpeg cuts the preview. <b>It takes five to six minutes</b>; the steps below
+        fill in as each one finishes.
+      </div>
+      <div class="hint" style="margin-top:.6rem">
+        Footage:
+        <label><input type="radio" name="shoot" value="en" checked> English (a US coffee shop)</label>
+        <label style="margin-left:1rem"><input type="radio" name="shoot" value="ja"> 日本語 (a Japanese one)</label>
+        <br>Same story, two newsrooms. The Japanese shoot is the one this was built for —
+        it produces the caption order sheet a Japanese broadcaster actually uses.
+      </div>
+    </div>
 
-  <div class="cta">
-    <button id="run">Run the overnight demo</button>
-    <div class="hint">
-      Runs for real — nothing here is pre-generated. Gemini watches all four clips, the
-      Parallel Search API checks the claims that clear the confidentiality gate, and FFmpeg
-      cuts the preview. <b>It takes five to six minutes</b>, most of it Gemini watching the
-      footage and Parallel checking the claims; the steps below fill in as each one finishes.
-    </div>
-    <div class="hint" style="margin-top:.6rem">
-      Footage:
-      <label><input type="radio" name="shoot" value="en" checked> English (a US coffee shop)</label>
-      <label style="margin-left:1rem"><input type="radio" name="shoot" value="ja"> 日本語 (a Japanese one)</label>
-      <br>Same story, two newsrooms. The Japanese shoot is the one this was built for —
-      it produces the caption order sheet a Japanese broadcaster actually uses.
-    </div>
+    <details class="own-footage">
+      <summary>Or run it on your own footage</summary>
+      <div class="card">
+        <p class="src" style="margin-top:0">
+          Pick the clips from tonight's shoot (the copies you already made off the
+          card) and CurrentCut runs the same overnight pass on them.
+          Public-demo caps: up to <span id="cap-files">9</span> clips,
+          <span id="cap-file">100</span> MB each,
+          <span id="cap-total">400</span> MB / <span id="cap-min">20</span> minutes
+          of footage in total, and a shared daily run budget.
+        </p>
+        <input type="file" id="own-files" multiple accept=".mp4,.mov,.m4v,video/mp4,video/quicktime">
+        <div style="margin-top:.6rem">
+          <button id="own-run" type="button">Start Overnight Run on these clips</button>
+          <span id="own-msg" class="src" style="margin-left:.6rem"></span>
+        </div>
+        <p class="src" style="margin-bottom:0">
+          Uploaded footage is analysed by Gemini under Google's API terms and kept
+          only on this demo instance's temporary disk. It is a public demo:
+          please don't upload confidential material or people who haven't
+          consented to being processed.
+        </p>
+      </div>
+    </details>
   </div>
 
-  <details class="own-footage">
-    <summary>Or run it on your own footage</summary>
-    <div class="card">
-      <p class="src" style="margin-top:0">
-        Pick the clips from tonight's shoot (the copies you already made off the
-        card) and CurrentCut runs the same overnight pass on them.
-        Public-demo caps: up to <span id="cap-files">9</span> clips,
-        <span id="cap-file">100</span> MB each,
-        <span id="cap-total">400</span> MB / <span id="cap-min">20</span> minutes
-        of footage in total, and a shared daily run budget.
-      </p>
-      <input type="file" id="own-files" multiple accept=".mp4,.mov,.m4v,video/mp4,video/quicktime">
-      <div style="margin-top:.6rem">
-        <button id="own-run" type="button">Start Overnight Run on these clips</button>
-        <span id="own-msg" class="src" style="margin-left:.6rem"></span>
+  <aside class="preview">
+    <p class="preview-head">What you wake up to — from a real run of this demo</p>
+    <figure class="frame">
+      <img src="/static/hero_frame.jpg" width="1080" height="608"
+           alt="Frame from the demo's first cut: an interviewee behind a coffee bar, with a burned-in data caption reading 'The federal minimum wage is seven dollars an… (Source: beta.dol.gov)' above the subtitle 'Seven dollars and 25 cents an hour.'">
+    </figure>
+    <div class="pcards">
+      <div class="pcard">
+        <span class="ptitle">Morning report</span>
+        <ul>
+          <li class="p-ok">✓ 12 claims checked</li>
+          <li class="p-ok">✓ 3 confidential moments protected</li>
+          <li class="p-ok">✓ 52-second first cut assembled</li>
+          <li class="p-warn">⚠ 4 figures to re-check before lock</li>
+        </ul>
       </div>
-      <p class="src" style="margin-bottom:0">
-        Uploaded footage is analysed by Gemini under Google's API terms and kept
-        only on this demo instance's temporary disk. It is a public demo:
-        please don't upload confidential material or people who haven't
-        consented to being processed.
-      </p>
+      <div class="pcard">
+        <span class="ptitle">Caption order sheet</span>
+        <ul>
+          <li>№4 Small businesses employ almost half…
+            <span class="p-src">Source: advocacy.sba.gov</span></li>
+          <li>№7 Federal minimum wage $7.25/hour
+            <span class="p-src">Source: beta.dol.gov</span></li>
+          <li>№15 about 200 cups of coffee daily
+            <span class="p-warn">— their own figure; attributed to the speaker</span></li>
+        </ul>
+      </div>
     </div>
-  </details>
+    <p class="preview-note">Everything above is actual output from a live run of this
+      pipeline — nothing is a mock-up. Press the button and it makes tonight's
+      version in front of you.</p>
+  </aside>
+  </div>
 
   <section id="progress" class="hidden">
     <h2>Overnight Run</h2>

@@ -25,6 +25,11 @@ def index():
     return (_STATIC / "index.html").read_text(encoding="utf-8")
 
 
+@app.get("/static/hero_frame.jpg")
+def hero_frame():
+    return FileResponse(_STATIC / "hero_frame.jpg", media_type="image/jpeg")
+
+
 @app.post("/api/demo/start")
 def demo_start(shoot: str = ""):
     """Start a real overnight run on the bundled demo footage.
