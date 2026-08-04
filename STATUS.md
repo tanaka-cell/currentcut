@@ -173,20 +173,62 @@ ordinary shop talk does not trip them.
 
 Tests: **96 passed**.
 
+## Run-to-run variance (2026-08-04): ✅ settled, measured over five runs
+
+A judge presses the button once, so the run that matters is the worst one.
+Five consecutive English runs, fresh cache each time, real APIs throughout:
+
+| | run 0 | run 1 | run 2 | run 3 | run 4 |
+|---|---|---|---|---|---|
+| Coarsest segment (sentences) | 1 | 1 | 1 | 1 | 1 |
+| Claims confirmed | 4 | 3 | 4 | 4 | 4 |
+| **Telops carrying a source** | 3 | **2** | 3 | 3 | 3 |
+| Japanese leaked into English | 0 | 0 | 0 | 0 | 0 |
+
+Before: 0, 2 and 4 confirmed across three runs, and a fourth that crashed.
+
+Two causes, both found by running it rather than reasoning about it:
+
+- **Gemini occasionally returned a whole interview as one segment.** Clearance
+  is per segment, so the "off the record" in its last sentence held back the
+  four usable answers in front of it and the report came out empty. The footage
+  logger now counts sentences per segment and, when one swallowed several, names
+  the failure and asks again. Explaining *why* the split matters works better
+  than repeating the instruction. It will not prefer the retry blindly, lose the
+  clip if the retry errors, or spend a second video call on a good first reading.
+- **An apostrophe killed the render.** `drawtext` takes its text inside a
+  single-quoted filter value and "small businesses' share" closes that quote.
+  The run died, not just the caption. Japanese has no apostrophes, so this
+  surfaced the first time the demo ran in English — the judge's first press
+  could have been a 500. Captions now go through a file; the test renders
+  apostrophes, quotes, colons, percent signs and backslashes.
+
+Also fixed while measuring: the burned-in caption was drawing 200 characters on
+one line off the edge of the frame, and English captions carried 「（出典: …）」.
+
+Tests: **114 passed**.
+
+### Known rough edge
+Among primary sources the tie-break is alphabetical, so runs 3 and 4 credited
+`dol.georgia.gov` for the federal minimum wage where `www.dol.gov` was also
+available. A state labour department stating the federal rate is a true and
+citable source, but not the obvious one. Ranking primary sources by how directly
+they publish the fact in question needs a better idea than alphabetical.
+
 ## Next
-1. **Run-to-run variance is the biggest submission risk.** Three consecutive
-   English runs gave 0, 2 and 4 confirmed claims, and one produced almost
-   nothing because Gemini returned a 39-second interview as a single segment.
-   A judge presses the button once. Force per-utterance segmentation in the
-   footage logger, or split long segments in a second pass, and measure over
-   five runs before trusting it.
-2. **Speed.** A cold run is still dominated by Gemini watching four clips. Ship
-   the analysis cache in the image (now keyed on everything that determines the
-   answer, so it is caching rather than faking).
-3. Surface `held_awaiting_your_decision` in the web UI — the API and the report
-   carry it, the page does not show it yet.
+1. **Redeploy.** Cloud Run is still serving the code from before the English
+   shoot, the citation rule and both crash fixes.
+2. **Speed.** A cold run is still dominated by Gemini watching four clips (and
+   now sometimes twice, when the first reading is coarse). Ship the analysis
+   cache in the image — it is now keyed on everything that determines the
+   answer, so it is caching rather than faking.
+3. Surface `held_awaiting_your_decision` in the web UI — the API and the morning
+   report carry it, the page does not show it yet.
 4. Browser upload (footage paths are currently restricted to the bundled clips)
 5. English 3-minute demo video, submission package
+6. 4-AI review of the whole submission — worth doing once the demo is stable,
+   which it now is; reviewing an unstable demo would have meant four reviewers
+   each seeing a different run.
 
 ## Deployment notes
 - Project `clearslate-demo-2026`, region `asia-northeast1`, service `currentcut`
