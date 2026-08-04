@@ -215,7 +215,8 @@ def _note(status: EvidenceStatus, claim: Claim | None,
             return claim.volatility_note
         return "No public source backs this. Attribute it to the speaker or drop the number."
     notes = []
-    if evidence.citable_source(research_by_claim.get(claim.id, [])) is None:
+    if evidence.citable_source(research_by_claim.get(claim.id, []),
+                               claim.claim_text) is None:
         # Confirmed, but by nobody worth naming on air. Say so here rather than
         # let the line look fully cleared because its status reads CONFIRMED.
         backers = evidence.supporting_domains(research_by_claim.get(claim.id, []))
@@ -243,7 +244,8 @@ def _caption_for(seg: Segment, claim: Claim | None,
         # regardless of support is how an anime fan site ended up printed as the
         # source for a product price; citing any supporting source is how a
         # payments vendor ended up printed under the national tax rates.
-        citable = evidence.citable_source(research_by_claim.get(claim.id, []))
+        citable = evidence.citable_source(research_by_claim.get(claim.id, []),
+                                          claim.claim_text)
         if citable:
             return lang.cited(lang.detect(claim.claim_text),
                               claim.claim_text, citable.source_domain)

@@ -139,8 +139,8 @@ Measured on the English shoot, real APIs end to end:
 | Caption | Source | Note to the director |
 |---|---|---|
 | Small businesses employ almost half | `advocacy.sba.gov` | Data from 2023 SBA Office of Advocacy |
-| Federal minimum wage $7.25 an hour | `webapps.dol.gov` | |
-| Min wage unchanged since 2009 | `webapps.dol.gov` | effective July 24, 2009 |
+| Federal minimum wage $7.25 an hour | `www.dol.gov` | |
+| Min wage unchanged since 2009 | `www.dol.gov` | effective July 24, 2009 |
 | over 150,000 convenience stores | — | Checked, but no primary source to credit |
 
 The last row is planted: only trade bodies publish that count, so the citation
@@ -209,11 +209,12 @@ one line off the edge of the frame, and English captions carried 「（出典: �
 Tests: **114 passed**.
 
 ### Known rough edges
-**Primary sources are ranked alphabetically.** Runs 3 and 4 credited
-`dol.georgia.gov` for the federal minimum wage where `www.dol.gov` was also
-available. A state labour department stating the federal rate is a true and
-citable source, but not the obvious one. Ranking primary sources by how directly
-they publish the fact in question needs a better idea than sorting by URL.
+~~**Primary sources are ranked alphabetically.**~~ Fixed — see D-028. Runs 3 and
+4 credited `dol.georgia.gov` for the federal minimum wage, and the sample served
+on the landing page carried it too, where `www.dol.gov` was in the same
+supporting evidence both times. Creditable sources are now ranked by whether the
+authority matches the scope of the claim, then by whether the host is the body's
+published estate rather than its application servers.
 
 **A claim about the past is being judged for staleness.** "The federal minimum
 wage has not changed since 2009" comes back as "The figure matches, but only in

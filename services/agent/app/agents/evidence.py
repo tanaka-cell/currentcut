@@ -234,7 +234,131 @@ def supports(judgment: EvidenceJudgment) -> bool:
 PRIMARY_SOURCE_TYPES = ("government", "official")
 
 
-def citable_source(results: list[ResearchResult]) -> ResearchResult | None:
+# --- which authority may be credited -----------------------------------------
+#
+# Every public-authority domain is creditable, but they are not interchangeable.
+# A figure set by the national government must not be credited to a state or
+# prefectural office that merely repeats it: "Source: dol.georgia.gov" under the
+# *federal* minimum wage names a body that does not set it. Measured, not
+# imagined — the sample shipped on the landing page carried exactly that, and
+# www.dol.gov was sitting in the same supporting evidence, beaten only by the
+# alphabet.
+#
+# Registrable domains that belong to a state or territory rather than the union.
+# Both forms are in use (ny.gov and georgia.gov), so both are listed, mapped to
+# the name a claim would actually say.
+_US_STATE_DOMAINS = {
+    "alabama.gov": "alabama", "alaska.gov": "alaska", "az.gov": "arizona",
+    "arkansas.gov": "arkansas", "ca.gov": "california", "colorado.gov": "colorado",
+    "ct.gov": "connecticut", "delaware.gov": "delaware", "de.gov": "delaware",
+    "florida.gov": "florida", "georgia.gov": "georgia", "hawaii.gov": "hawaii",
+    "idaho.gov": "idaho", "illinois.gov": "illinois", "in.gov": "indiana",
+    "iowa.gov": "iowa", "kansas.gov": "kansas", "ks.gov": "kansas",
+    "kentucky.gov": "kentucky", "ky.gov": "kentucky", "louisiana.gov": "louisiana",
+    "la.gov": "louisiana", "maine.gov": "maine", "maryland.gov": "maryland",
+    "md.gov": "maryland", "mass.gov": "massachusetts", "michigan.gov": "michigan",
+    "mi.gov": "michigan", "mn.gov": "minnesota", "ms.gov": "mississippi",
+    "mo.gov": "missouri", "mt.gov": "montana", "nebraska.gov": "nebraska",
+    "ne.gov": "nebraska", "nv.gov": "nevada", "nh.gov": "new hampshire",
+    "nj.gov": "new jersey", "nm.gov": "new mexico", "ny.gov": "new york",
+    "nc.gov": "north carolina", "nd.gov": "north dakota", "ohio.gov": "ohio",
+    "ok.gov": "oklahoma", "oregon.gov": "oregon", "pa.gov": "pennsylvania",
+    "ri.gov": "rhode island", "sc.gov": "south carolina", "sd.gov": "south dakota",
+    "tn.gov": "tennessee", "texas.gov": "texas", "tx.gov": "texas",
+    "utah.gov": "utah", "vermont.gov": "vermont", "vt.gov": "vermont",
+    "virginia.gov": "virginia", "va.gov": "virginia", "wa.gov": "washington",
+    "wv.gov": "west virginia", "wisconsin.gov": "wisconsin", "wi.gov": "wisconsin",
+    "wyo.gov": "wyoming", "wyoming.gov": "wyoming", "dc.gov": "district of columbia",
+    "pr.gov": "puerto rico", "guam.gov": "guam", "vi.gov": "virgin islands",
+}
+
+# Words that put a claim at national scope outright. When one of these is
+# present, a state office is the wrong name to print even if the claim also
+# mentions that state ("Georgia follows the federal minimum wage").
+_NATIONAL_SCOPE_WORDS = (
+    "federal", "nationwide", "nationally", "national", "countrywide",
+    "全国", "国が", "国の", "法定", "政府が",
+)
+
+# Hosts that serve an authority's applications or staging estate rather than its
+# published pages. The body is right, the address is not the one to put on air:
+# webapps.dol.gov reached the sample sheet while www.dol.gov backed the same
+# claim. Content subdomains (data.bls.gov, advocacy.sba.gov) are deliberately
+# absent — those are where the figures actually live.
+_SERVICE_HOST_LABELS = frozenset({
+    "webapps", "apps", "beta", "staging", "stage", "test", "testing", "dev",
+    "sandbox", "preview", "legacy", "archive", "old", "m", "mobile",
+})
+
+
+def _registrable(host: str) -> str:
+    """Last two labels — good enough for the reserved registries we accept."""
+    parts = host.split(".")
+    return ".".join(parts[-2:]) if len(parts) >= 2 else host
+
+
+def _subnational_of(host: str) -> str | None:
+    """The state/prefecture a government host belongs to, or None if national.
+
+    Japan encodes this in the suffix already: .go.jp is the national government
+    and .lg.jp is a local one. The US does not, so the state registries are
+    listed above.
+    """
+    host = host.lower()
+    if host.endswith(".lg.jp"):
+        # city.yokohama.lg.jp / pref.chiba.lg.jp — the place is the label that
+        # is not the kind of body or the suffix.
+        labels = [l for l in host.split(".")[:-2]
+                  if l not in ("city", "pref", "town", "vil", "metro", "www")]
+        return labels[-1] if labels else ""
+    if host.endswith(".state.us") or ".state." in host:
+        return ""  # legacy state.<xx>.us estate; place unknown but subnational
+    return _US_STATE_DOMAINS.get(_registrable(host))
+
+
+def _wrong_jurisdiction(host: str, claim_text: str) -> int:
+    """1 when this authority is below the scope the claim is actually about.
+
+    Silence is not evidence. Where the place cannot be read out of the claim at
+    all the authority keeps its standing, because demoting on an unreadable
+    comparison would quietly strip every local office of credit for its own
+    local story — the opposite of the bug being fixed.
+    """
+    place = _subnational_of(host)
+    if place is None:
+        return 0
+    text = claim_text.lower()
+    if any(w in text for w in _NATIONAL_SCOPE_WORDS):
+        return 1  # explicitly a national figure; a state office does not set it
+    if not place:
+        return 0  # subnational, but which place is unknown — cannot judge scope
+    if re.search(rf"\b{re.escape(place)}\b", text) or place in text:
+        return 0  # the claim is about that place — its own office is the source
+    if place.isascii() and not any(c.isascii() and c.isalpha() for c in text):
+        # city.yokohama.lg.jp against 横浜市: the domain is romaji and the claim
+        # is not. Failing to find it says nothing about what the claim is about.
+        return 0
+    return 1
+
+
+def _service_host(host: str) -> int:
+    """1 for an application/staging host of an otherwise correct authority."""
+    labels = host.lower().split(".")
+    return 1 if labels and labels[0] in _SERVICE_HOST_LABELS else 0
+
+
+def _credit_rank(r: ResearchResult, claim_text: str) -> tuple:
+    host = (r.source_domain or "").lower()
+    return (
+        PRIMARY_SOURCE_TYPES.index(r.source_type),  # a public body before a company
+        _wrong_jurisdiction(host, claim_text),      # the authority that sets it
+        _service_host(host),                        # its published estate
+        r.source_url,                               # deterministic last resort
+    )
+
+
+def citable_source(results: list[ResearchResult],
+                   claim_text: str = "") -> ResearchResult | None:
     """The one source that may be printed on screen as 出典, or None.
 
     Supporting a claim and being fit to name on air are different bars. A
@@ -253,12 +377,15 @@ def citable_source(results: list[ResearchResult]) -> ResearchResult | None:
     directly it called nikkei.com and bengo4.com primary sources for a national
     statistic, and one of those reached air. The model finds evidence; the rule
     for what may be credited stays where it can be read and tested.
+
+    `claim_text` decides scope only — never whether a source is creditable at
+    all. Passing nothing keeps every ordering rule except the jurisdiction one.
     """
     primary = [r for r in results
                if r.supports_claim and r.source_type in PRIMARY_SOURCE_TYPES]
     # Deterministic, so the same evidence always yields the same 出典 on the
     # sheet. Both kinds are acceptable; government first is only a tie-break.
-    primary.sort(key=lambda r: (PRIMARY_SOURCE_TYPES.index(r.source_type), r.source_url))
+    primary.sort(key=lambda r: _credit_rank(r, claim_text))
     return primary[0] if primary else None
 
 

@@ -295,3 +295,42 @@ everything on tape").
 Anything phrased in a way the list does not know still has to get past the Gemini
 layer, which can only make a label stricter — and its prompt now says outright
 that a polite request is still a request.
+
+## 2026-08-05 — D-028: Which authority gets named, when several may be
+Creditable sources were sorted by URL. Among equals that is fine; among
+authorities it is not. The federal minimum wage was credited to
+`dol.georgia.gov` — a state labour department, which does state the federal
+rate truthfully but does not set it — because "d" sorts before "w" and
+`www.dol.gov` was sitting in the same supporting evidence. The same sort put
+`webapps.dol.gov`, an application server, under the same figure on the next
+line. Both reached the sample served on the landing page, which is the first
+thing a judge clicks.
+
+Ranking now asks two questions before falling back to the alphabet:
+
+1. **Does the authority match the scope of the claim?** A claim that says
+   "federal" is not the state's to certify. Japan encodes the level in the
+   suffix already (`.go.jp` national, `.lg.jp` local); the US does not, so the
+   state registries are listed by name. A claim about that state credits that
+   state's office — the demotion is about scope, not about states ranking below
+   the union, and a state page that is the only public body to back a claim is
+   still the source.
+2. **Is the host the body's published estate?** `www.dol.gov` over
+   `webapps.dol.gov`. Content subdomains are deliberately not penalised —
+   `advocacy.sba.gov` and `data.bls.gov` are where those figures actually live.
+
+Where the place cannot be read out of the claim at all — `city.yokohama.lg.jp`
+against 「横浜市」, romaji domain against kanji text — the authority keeps its
+standing. Demoting on a comparison that could not be made would quietly strip
+every local office of credit for its own local story, which is the opposite of
+the bug being fixed. Silence is not evidence.
+
+The rule reads the claim only to decide scope. It can never make an
+uncreditable source creditable: a company blog does not become citable by
+naming the right state.
+
+Measured against every stored run: two attributions changed, both the ones
+above, and nothing else moved. The landing-page sample was rebuilt from the
+recorded evidence of that same run rather than shot again — the claims, the
+sources and the timings did not change, only the name the rule picks out of
+them (`scripts/refresh_sample_credits.py`).

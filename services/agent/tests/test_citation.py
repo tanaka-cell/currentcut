@@ -53,6 +53,115 @@ def test_the_same_evidence_always_yields_the_same_credit():
     assert citable_source(list(reversed(results))).source_url == first
 
 
+# ---- which authority, once several may be credited -------------------------
+#
+# All of these were creditable already. The question these pin is *which* name
+# reaches the screen when more than one public body backs the same figure. The
+# first two are the sample that shipped on the landing page: www.dol.gov was in
+# the supporting evidence both times and lost on the alphabet.
+
+_FEDERAL = "The federal minimum wage of $7.25 an hour has not changed since 2009."
+
+
+def test_a_state_office_is_not_credited_for_a_federal_figure():
+    """dol.georgia.gov under the federal minimum wage names a body that does
+    not set it. It reached the shipped sample; www.dol.gov was right there."""
+    from app.agents.evidence import citable_source
+
+    got = citable_source([
+        _result("https://dol.georgia.gov/minimum-wage", "government"),
+        _result("https://www.dol.gov/agencies/whd/minimum-wage", "government"),
+    ], _FEDERAL)
+    assert got.source_domain == "www.dol.gov"
+
+
+def test_an_application_host_loses_to_the_published_estate():
+    """Right authority, wrong address: webapps.dol.gov also reached the sample."""
+    from app.agents.evidence import citable_source
+
+    got = citable_source([
+        _result("https://webapps.dol.gov/elaws/faq", "government"),
+        _result("https://www.dol.gov/agencies/whd/minimum-wage", "government"),
+    ], _FEDERAL)
+    assert got.source_domain == "www.dol.gov"
+
+
+def test_a_state_office_is_still_credited_when_it_is_the_only_one():
+    """Ranking below the union is not the same as being unfit to name. If the
+    state page is the only public body that backed it, it is the source."""
+    from app.agents.evidence import citable_source
+
+    got = citable_source([
+        _result("https://dol.georgia.gov/minimum-wage", "government"),
+        _result("https://www.cbpp.org/wages", "web"),
+    ], _FEDERAL)
+    assert got.source_domain == "dol.georgia.gov"
+
+
+def test_a_state_office_is_the_right_source_for_that_state():
+    """The demotion is about scope, not about states being second class."""
+    from app.agents.evidence import citable_source
+
+    got = citable_source([
+        _result("https://www.dol.gov/agencies/whd/state/minimum-wage", "government"),
+        _result("https://dol.georgia.gov/minimum-wage", "government"),
+    ], "Georgia's own minimum wage is still $5.15 an hour.")
+    assert got.source_domain == "dol.georgia.gov"
+
+
+def test_naming_a_state_does_not_make_it_the_authority_on_a_federal_figure():
+    """A claim can mention both. "federal" decides who sets the number."""
+    from app.agents.evidence import citable_source
+
+    got = citable_source([
+        _result("https://dol.georgia.gov/minimum-wage", "government"),
+        _result("https://www.dol.gov/agencies/whd/minimum-wage", "government"),
+    ], "Georgia has no state minimum of its own, so the federal $7.25 applies.")
+    assert got.source_domain == "www.dol.gov"
+
+
+def test_a_local_japanese_authority_loses_to_the_national_one():
+    """Japan puts the level in the suffix: .go.jp is national, .lg.jp is not."""
+    from app.agents.evidence import citable_source
+
+    got = citable_source([
+        _result("https://www.city.yokohama.lg.jp/zeikin", "government"),
+        _result("https://www.nta.go.jp/taxes/keigen.htm", "government"),
+    ], "持ち帰りの消費税は全国どこでも8%です。")
+    assert got.source_domain == "www.nta.go.jp"
+
+
+def test_a_local_japanese_authority_wins_for_its_own_place():
+    from app.agents.evidence import citable_source
+
+    got = citable_source([
+        _result("https://www.nta.go.jp/taxes/keigen.htm", "government"),
+        _result("https://www.city.yokohama.lg.jp/hoikuen", "government"),
+    ], "横浜市の待機児童は今年度ゼロになりました。")
+    assert got.source_domain == "www.city.yokohama.lg.jp"
+
+
+def test_scope_never_decides_whether_a_source_is_creditable_at_all():
+    """A company blog does not become citable by naming the right place."""
+    from app.agents.evidence import citable_source
+
+    assert citable_source([_result("https://stripe.com/guides/tax", "web")],
+                          "Georgia's minimum wage is $5.15.") is None
+
+
+def test_the_credit_still_does_not_depend_on_retrieval_order():
+    """The new ordering has more terms; it must stay a total order."""
+    from app.agents.evidence import citable_source
+
+    results = [_result("https://dol.georgia.gov/a", "government"),
+               _result("https://webapps.dol.gov/b", "government"),
+               _result("https://www.dol.gov/c", "government"),
+               _result("https://example.com/ir/x", "official")]
+    first = citable_source(results, _FEDERAL).source_url
+    assert citable_source(list(reversed(results)), _FEDERAL).source_url == first
+    assert first == "https://www.dol.gov/c"
+
+
 def test_supporting_domains_reports_who_did_back_it():
     """A director told "no primary source" still needs somewhere to start."""
     from app.agents.evidence import supporting_domains

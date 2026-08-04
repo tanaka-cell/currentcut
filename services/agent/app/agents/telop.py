@@ -137,7 +137,7 @@ def _entries_for_line(project_id: str, line: ScriptLine, seg: Segment,
         if claim is None:
             continue
         results = research_by_claim.get(claim_id, [])
-        citable = evidence.citable_source(results)
+        citable = evidence.citable_source(results, claim.claim_text)
 
         if claim.verification_status in _AIRABLE_AS_FACT:
             # The figure was checked either way. Whether it may carry a 出典 on

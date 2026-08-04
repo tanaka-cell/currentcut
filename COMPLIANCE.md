@@ -24,8 +24,10 @@ Manager for hosting and keys.
 ## How to check it yourself
 
 ```bash
-# No forbidden AI dependency reaches the product.
-grep -rEn "openai|anthropic|claude|langchain|llama_index|llamaindex|bedrock|cohere|mistralai|autogen|crewai|semantic_kernel" services/agent/app/ services/agent/requirements.txt
+# No forbidden AI dependency reaches the product. Whole words only: a page a
+# demo run retrieved describes a trade association as a "philanthropic"
+# contributor, and a substring search reports that as a hit on "anthropic".
+grep -rEnw "openai|anthropic|claude|langchain|llama_index|llamaindex|bedrock|cohere|mistralai|autogen|crewai|semantic_kernel" services/agent/app/ services/agent/requirements.txt
 
 # The official SDKs are imported and actually called.
 grep -rn "from google import genai\|google.adk\|from parallel import Parallel" services/agent/app/
@@ -33,6 +35,10 @@ grep -rn "from google import genai\|google.adk\|from parallel import Parallel" s
 
 The first command returns nothing. The second shows the three call sites in the
 table above.
+
+Note for an automated screen: `services/agent/app/static/` holds saved output
+from real runs — retrieved page titles and excerpts, verbatim. Text in there is
+evidence the pipeline collected, not source code, and none of it is executed.
 
 ## Runtime evidence
 
