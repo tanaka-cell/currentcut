@@ -100,8 +100,32 @@ trips), which is most of Next item 2 below.
 
 Tests: **35 passed**. `tests/test_verifiability.py` pins each fault above.
 
-⚠️ The Cloud Run deployment still runs the pre-fix code — this has not been
-redeployed.
+### Verified in production (2026-08-04, revision `currentcut-00008-pvc`)
+
+One click on the hosted demo, real pipeline, no pre-generated anything. The
+telop order sheet came back with its citations filled in:
+
+| Telop | 出典 | 備考 |
+|---|---|---|
+| 全国 コンビニ／5万6000店 | www.bengo4.com | 12月度 |
+| 消費税 軽減税率／お持ち帰り 8% | **www.nta.go.jp** | 2027年4月から1%に引き下げ |
+| 店内飲食　消費税10% | stripe.com | |
+| 1日　約100杯　コーヒー | — | 自店の数字　公開データなし |
+| 喫茶店客 10年で／3割減 | — | 自店の数字　公開データなし |
+| この商店街　店減少 | — | 対象が特定できない　裏取り不可 |
+
+8 claims checked, 1 confidential moment protected, 47.1s cut. The volatility
+flag on the 8% line is the useful kind — the source itself says the rate drops
+to 1% in April 2027.
+
+Rough edge: the 10% line cites stripe.com. Supporting sources are sorted
+official/government first, so no primary source backed that claim on this run
+and a payments vendor's explainer led instead. It is a true citation but not one
+to put on air; the data telop should probably require a primary source or else
+carry no 出典 at all.
+
+Deployment note: `gcloud` credentials live per-machine. `gcloud auth login` as
+`fieldcasterjp@gmail.com` is a prerequisite; `deploy.sh` wraps the rest.
 
 ## Next
 1. **Speed.** A cold run is still dominated by Gemini watching four clips. Ship
