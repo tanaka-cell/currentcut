@@ -42,18 +42,10 @@ SHOOT_TITLES = {
 }
 
 
-def start(shoot: str = "") -> str:
-    """Create the demo project and run it on a worker thread."""
-    config.ensure_dirs()
-    shoot = shoot or config.DEFAULT_DEMO_SHOOT
-    if shoot not in config.DEMO_SHOOTS:
-        raise RuntimeError(f"unknown shoot {shoot!r}; known: {', '.join(config.DEMO_SHOOTS)}")
-    clips = demo_clips(shoot)
-    if not clips:
-        raise RuntimeError(f"no demo footage found in {config.demo_dir(shoot)}")
-
+def _launch(title: str, clips: list[str]) -> str:
+    """Create a project for these clips and run the pipeline on a worker thread."""
     project = Project(
-        title=SHOOT_TITLES.get(shoot, shoot),
+        title=title,
         target_duration_seconds=90,
         air_date="",
         tone="energetic but not sensational",
@@ -80,6 +72,28 @@ def start(shoot: str = "") -> str:
 
     threading.Thread(target=run, daemon=True).start()
     return project.id
+
+
+def start(shoot: str = "") -> str:
+    """Run the bundled demo shoot."""
+    config.ensure_dirs()
+    shoot = shoot or config.DEFAULT_DEMO_SHOOT
+    if shoot not in config.DEMO_SHOOTS:
+        raise RuntimeError(f"unknown shoot {shoot!r}; known: {', '.join(config.DEMO_SHOOTS)}")
+    clips = demo_clips(shoot)
+    if not clips:
+        raise RuntimeError(f"no demo footage found in {config.demo_dir(shoot)}")
+    return _launch(SHOOT_TITLES.get(shoot, shoot), clips)
+
+
+def start_uploaded(title: str, clips: list[str]) -> str:
+    """Run on footage a visitor uploaded. Validation happened at the API layer;
+    this trusts nothing about the content beyond that and runs the same
+    pipeline the demo runs."""
+    config.ensure_dirs()
+    if not clips:
+        raise RuntimeError("no uploaded footage to run")
+    return _launch(title or "Uploaded footage (Overnight Run)", clips)
 
 
 def status(project_id: str) -> dict:

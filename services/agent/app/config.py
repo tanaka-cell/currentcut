@@ -88,6 +88,18 @@ def demo_dir(shoot: str = "") -> Path:
     per_language = DEMO_ASSETS_DIR / shoot
     return per_language if per_language.is_dir() else DEMO_ASSETS_DIR
 
+# "Your own footage" uploads on the hosted demo. The caps are cost armour, not
+# product limits: the public instance runs on our Gemini key, so an unguarded
+# upload form is an invitation to spend our quota. Sized for a short factual
+# feature's selects, not a full rushes card.
+UPLOAD_DIR = Path(os.getenv("CURRENTCUT_UPLOAD_DIR", str(DATA_DIR / "uploads"))).resolve()
+UPLOAD_MAX_FILES = int(os.getenv("CURRENTCUT_UPLOAD_MAX_FILES", "9"))
+UPLOAD_MAX_FILE_MB = int(os.getenv("CURRENTCUT_UPLOAD_MAX_FILE_MB", "100"))
+UPLOAD_MAX_TOTAL_MB = int(os.getenv("CURRENTCUT_UPLOAD_MAX_TOTAL_MB", "400"))
+UPLOAD_MAX_TOTAL_MINUTES = int(os.getenv("CURRENTCUT_UPLOAD_MAX_TOTAL_MINUTES", "20"))
+UPLOAD_RUNS_PER_DAY = int(os.getenv("CURRENTCUT_UPLOAD_RUNS_PER_DAY", "8"))
+UPLOAD_ALLOWED_SUFFIXES = (".mp4", ".mov", ".m4v")
+
 PARALLEL_BASE_URL = os.getenv("PARALLEL_BASE_URL", "https://api.parallel.ai")
 PARALLEL_MAX_SEARCHES_PER_RUN = int(os.getenv("PARALLEL_MAX_SEARCHES_PER_RUN", "20"))
 # Text budget per search. The default returns snippets far too short to contain
@@ -112,5 +124,5 @@ FONT_FILE = os.getenv("CURRENTCUT_FONT", _default_font)
 
 
 def ensure_dirs() -> None:
-    for d in (DATA_DIR, OUTPUT_DIR, DEMO_ASSETS_DIR):
+    for d in (DATA_DIR, OUTPUT_DIR, DEMO_ASSETS_DIR, UPLOAD_DIR):
         d.mkdir(parents=True, exist_ok=True)

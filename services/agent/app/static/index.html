@@ -44,6 +44,10 @@
   .live-log .log-done .mark{color:var(--ok)}
   .live-log .log-blocked{color:var(--warn)}
   .live-log .log-blocked .mark{color:var(--stop)}
+  .own-footage{margin:1.25rem 0 0}
+  .own-footage summary{cursor:pointer;font-weight:600;color:var(--accent)}
+  .own-footage .card{margin-top:.6rem}
+  .own-footage input[type=file]{font:inherit;font-size:.9rem}
   .alert{background:#fbf1de;border:1px solid var(--warn);border-radius:4px;
          padding:.85rem 1.1rem;margin:0 0 1rem;color:var(--warn);font-size:.9rem}
   .alert b{display:block;margin-bottom:.35rem;color:var(--ink)}
@@ -103,6 +107,31 @@
       it produces the caption order sheet a Japanese broadcaster actually uses.
     </div>
   </div>
+
+  <details class="own-footage">
+    <summary>Or run it on your own footage</summary>
+    <div class="card">
+      <p class="src" style="margin-top:0">
+        Pick the clips from tonight's shoot (the copies you already made off the
+        card) and CurrentCut runs the same overnight pass on them.
+        Public-demo caps: up to <span id="cap-files">9</span> clips,
+        <span id="cap-file">100</span> MB each,
+        <span id="cap-total">400</span> MB / <span id="cap-min">20</span> minutes
+        of footage in total, and a shared daily run budget.
+      </p>
+      <input type="file" id="own-files" multiple accept=".mp4,.mov,.m4v,video/mp4,video/quicktime">
+      <div style="margin-top:.6rem">
+        <button id="own-run" type="button">Start Overnight Run on these clips</button>
+        <span id="own-msg" class="src" style="margin-left:.6rem"></span>
+      </div>
+      <p class="src" style="margin-bottom:0">
+        Uploaded footage is analysed by Gemini under Google's API terms and kept
+        only on this demo instance's temporary disk. It is a public demo:
+        please don't upload confidential material or people who haven't
+        consented to being processed.
+      </p>
+    </div>
+  </details>
 
   <section id="progress" class="hidden">
     <h2>Overnight Run</h2>
@@ -188,6 +217,43 @@ $('#run').onclick = async () => {
   poll();
 };
 
+// Same run, the visitor's clips. Size and count are pre-checked here only to
+// save them a doomed upload — the server re-checks everything.
+const CAPS = {files: 9, fileMB: 100, totalMB: 400};
+$('#own-run').onclick = async () => {
+  const files = [...$('#own-files').files];
+  const msg = $('#own-msg');
+  if (!files.length) { msg.textContent = 'Pick at least one clip first.'; return; }
+  if (files.length > CAPS.files) { msg.textContent = `Up to ${CAPS.files} clips per run.`; return; }
+  const over = files.find(f => f.size > CAPS.fileMB * 1048576);
+  if (over) { msg.textContent = `${over.name} is over the ${CAPS.fileMB} MB per-file cap.`; return; }
+  if (files.reduce((s,f) => s+f.size, 0) > CAPS.totalMB * 1048576) {
+    msg.textContent = `Together the clips are over the ${CAPS.totalMB} MB cap.`; return;
+  }
+
+  const body = new FormData();
+  files.forEach(f => body.append('files', f));
+  $('#own-run').disabled = true; $('#run').disabled = true;
+  msg.textContent = `Uploading ${files.length} clip${files.length>1?'s':''}…`;
+  let r, d;
+  try {
+    r = await fetch('/api/upload/start', {method:'POST', body});
+    d = await r.json();
+  } catch (e) {
+    msg.textContent = 'Upload failed — check your connection and try again.';
+    $('#own-run').disabled = false; $('#run').disabled = false; return;
+  }
+  if (!r.ok) {
+    msg.textContent = d.detail || 'The upload was not accepted.';
+    $('#own-run').disabled = false; $('#run').disabled = false; return;
+  }
+  msg.textContent = 'Running on your footage — progress below.';
+  projectId = d.project_id;
+  $('#run').textContent = 'Running…';
+  $('#progress').classList.remove('hidden');
+  poll();
+};
+
 async function poll() {
   const r = await fetch(`/api/demo/status/${projectId}`);
   const s = await r.json();
@@ -195,6 +261,7 @@ async function poll() {
   if (s.state === 'running') return setTimeout(poll, 1500);
   $('#run').textContent = s.state === 'done' ? 'Run again' : 'Failed';
   $('#run').disabled = false;
+  $('#own-run').disabled = false;
   if (s.state === 'done') await loadResults();
 }
 

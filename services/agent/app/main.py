@@ -3,11 +3,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel
 
-from . import adk_pipeline, config, demo, pipeline
+from . import adk_pipeline, config, demo, pipeline, upload
 from .agents import confidentiality, house_style, telop_form, telop_sheet
 from .models.schemas import (
     AgentRun, Asset, Claim, EgressLog, Project, RESTRICTED_LABELS, ResearchResult,
@@ -49,6 +49,23 @@ def demo_shoots():
 @app.get("/api/demo/status/{project_id}")
 def demo_status(project_id: str):
     return demo.status(project_id)
+
+
+@app.post("/api/upload/start")
+async def upload_start(files: list[UploadFile] = File(...), title: str = Form("")):
+    """Run the overnight pipeline on footage the visitor uploads.
+
+    Guarded (count, size, probed duration, daily budget) because this public
+    instance runs on our API keys — see upload.py. Returns the same project_id
+    the demo returns, so the caller polls the same status endpoint.
+    """
+    return {"project_id": await upload.start_uploaded_run(files, title),
+            "limits": {
+                "max_files": config.UPLOAD_MAX_FILES,
+                "max_file_mb": config.UPLOAD_MAX_FILE_MB,
+                "max_total_mb": config.UPLOAD_MAX_TOTAL_MB,
+                "max_total_minutes": config.UPLOAD_MAX_TOTAL_MINUTES,
+            }}
 
 
 @app.get("/media/{project_id}/rough_cut.mp4")
