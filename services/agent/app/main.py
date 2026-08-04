@@ -5,6 +5,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from . import adk_pipeline, config, demo, pipeline, upload
@@ -20,14 +21,12 @@ app = FastAPI(title="CurrentCut", version="0.2.0")
 _STATIC = Path(__file__).resolve().parent / "static"
 
 
+app.mount("/static", StaticFiles(directory=str(_STATIC)), name="static")
+
+
 @app.get("/", response_class=HTMLResponse)
 def index():
     return (_STATIC / "index.html").read_text(encoding="utf-8")
-
-
-@app.get("/static/hero_frame.jpg")
-def hero_frame():
-    return FileResponse(_STATIC / "hero_frame.jpg", media_type="image/jpeg")
 
 
 @app.post("/api/demo/start")

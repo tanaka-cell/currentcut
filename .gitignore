@@ -15,6 +15,10 @@ services/agent/output/
 # The Quick Judge Demo footage ships with the repo: a clean clone (and the
 # container image) must be able to run the demo without regenerating it.
 !demo-assets/generated/**
+# Same reason for the saved sample package behind "View a sample morning
+# package": it is the output of one real run, served as static files so a
+# visitor can see the deliverables without waiting six minutes for their own.
+!services/agent/app/static/sample/**
 .pytest_cache/
 .mypy_cache/
 .DS_Store

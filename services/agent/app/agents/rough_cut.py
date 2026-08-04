@@ -181,9 +181,14 @@ def _drawtext(text: str, out_dir: Path, name: str, *,
         # expansion=none: drawtext treats % as a template marker ("Stray %"
         # warnings, and the glyph vanishes), and a tax-rate caption is exactly
         # the text that contains one. Nothing here needs templating.
+        # borderw alone is not enough over bright footage: a 2px outline against
+        # a sunlit window leaves gold text barely readable, and the checked
+        # figure is the one line that has to survive any background. The drop
+        # shadow underneath carries it where the outline runs out of contrast.
         f",drawtext={fontopt}textfile='{_ff_escape(text_file.as_posix())}':"
-        f"expansion=none:fontsize={fontsize}:fontcolor={color}:borderw=2:"
-        f"bordercolor=black:x=(w-text_w)/2:y={y}:line_spacing=8"
+        f"expansion=none:fontsize={fontsize}:fontcolor={color}:borderw=3:"
+        f"bordercolor=black:shadowcolor=black@0.6:shadowx=2:shadowy=2:"
+        f"x=(w-text_w)/2:y={y}:line_spacing=8"
     )
 
 

@@ -23,23 +23,41 @@
               font-weight:400;font-size:.85rem;color:var(--ink-faint)}
   .hero{display:grid;grid-template-columns:45fr 55fr;gap:2.75rem;align-items:start}
   @media(max-width:920px){.hero{grid-template-columns:1fr}}
+  .preview{background:#20242e;border:1px solid #39404e;border-radius:6px;
+           padding:1rem 1.1rem 1rem;box-shadow:0 14px 30px rgba(20,22,28,.18)}
   .preview-head{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;
-                color:var(--ink-faint);margin:0 0 .55rem}
-  .preview .frame{margin:0;border:1px solid var(--line);border-radius:4px;overflow:hidden;
-                  background:#000;box-shadow:0 12px 28px rgba(31,29,26,.14)}
+                color:#9aa3b4;margin:0 0 .55rem}
+  .preview .frame{margin:0;border:1px solid #39404e;border-radius:4px;overflow:hidden;
+                  background:#000;box-shadow:0 10px 24px rgba(0,0,0,.4)}
   .preview .frame img{display:block;width:100%;height:auto}
   .hero>*{min-width:0}
   .pcards{display:grid;grid-template-columns:1fr 1.2fr;gap:.75rem;margin-top:.75rem}
   @media(max-width:520px){.pcards{grid-template-columns:1fr}}
-  .pcard{background:var(--card);border:1px solid var(--line);border-radius:4px;
-         padding:.65rem .8rem;font-size:.78rem;line-height:1.5}
+  .pcard{background:#2a303d;border:1px solid #3b4352;border-radius:4px;
+         padding:.65rem .8rem;font-size:.78rem;line-height:1.5;color:#d8dbe2}
   .pcard .ptitle{display:block;font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;
-                 color:var(--ink-faint);margin-bottom:.35rem;font-weight:600}
+                 color:#9aa3b4;margin-bottom:.35rem;font-weight:600}
   .pcard ul{list-style:none;margin:0;padding:0}
   .pcard li{padding:.1rem 0}
-  .pcard .p-ok{color:var(--ok)} .pcard .p-warn{color:var(--warn)}
-  .pcard .p-src{font-family:var(--mono);font-size:.68rem;color:var(--accent)}
-  .preview-note{font-size:.75rem;color:var(--ink-faint);margin-top:.65rem}
+  .pcard .p-ok{color:#63c08c} .pcard .p-warn{color:#e3ab54}
+  .pcard .p-src{font-family:var(--mono);font-size:.68rem;color:#5fcabd}
+  .preview-note{font-size:.75rem;color:#98a0b0;margin-top:.65rem}
+  .cta-row{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center}
+  button.ghost{background:transparent;color:var(--accent);border:2px solid var(--accent);
+               padding:.72rem 1.3rem}
+  button.ghost:hover{background:rgba(11,110,99,.07);filter:none}
+  .flow3{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;gap:.6rem;align-items:stretch;
+         margin:2.25rem 0 0}
+  @media(max-width:920px){.flow3{grid-template-columns:1fr}.f3-arrow{transform:rotate(90deg);justify-self:center}}
+  .f3{background:var(--card);border:1px solid var(--line);border-radius:4px;padding:.7rem .9rem}
+  .f3-when{display:block;font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;
+           color:var(--ink-faint);margin-bottom:.2rem}
+  .f3 b{display:block;font-size:.92rem}
+  .f3-sub{display:block;font-size:.78rem;color:var(--ink-soft);margin-top:.15rem}
+  .f3-arrow{align-self:center;color:var(--ink-faint);font-size:1.2rem}
+  .sample-banner{background:var(--card);border:1px solid var(--accent);border-radius:4px;
+                 padding:.85rem 1.1rem;margin:0 0 1rem;font-size:.9rem;color:var(--ink-soft)}
+  .sample-banner b{color:var(--ink)}
   .lede{max-width:62ch;color:var(--ink-soft)}
   .lede strong{color:var(--ink)}
   .cta{margin:2rem 0 .5rem}
@@ -109,7 +127,10 @@
       your review.</p>
 
     <div class="cta">
-      <button id="run">Run the overnight demo</button>
+      <div class="cta-row">
+        <button id="run">Run the overnight demo</button>
+        <button id="sample-btn" type="button" class="ghost">View a sample morning package</button>
+      </div>
       <div class="hint">
         Runs for real — nothing here is pre-generated. Gemini watches the clips, the
         Parallel Search API checks the claims that clear the confidentiality gate, and
@@ -155,34 +176,54 @@
     <p class="preview-head">What you wake up to — from a real run of this demo</p>
     <figure class="frame">
       <img src="/static/hero_frame.jpg" width="1080" height="608"
-           alt="Frame from the demo's first cut: an interviewee behind a coffee bar, with a burned-in data caption reading 'The federal minimum wage is seven dollars an… (Source: beta.dol.gov)' above the subtitle 'Seven dollars and 25 cents an hour.'">
+           alt="Frame from the demo's first cut: an interviewee behind a coffee bar, with a burned-in data caption reading 'The federal minimum wage is $7.25 an hour. (Source: webapps.dol.gov)' above the subtitle 'We pay the federal minimum wage here.'">
     </figure>
     <div class="pcards">
       <div class="pcard">
         <span class="ptitle">Morning report</span>
         <ul>
           <li class="p-ok">✓ 12 claims checked</li>
-          <li class="p-ok">✓ 3 confidential moments protected</li>
-          <li class="p-ok">✓ 52-second first cut assembled</li>
-          <li class="p-warn">⚠ 4 figures to re-check before lock</li>
+          <li class="p-ok">✓ 2 confidential moments protected</li>
+          <li class="p-ok">✓ 57-second first cut assembled</li>
+          <li class="p-warn">⚠ 3 figures to re-check before lock</li>
         </ul>
       </div>
       <div class="pcard">
         <span class="ptitle">Caption order sheet</span>
         <ul>
-          <li>№4 Small businesses employ almost half…
+          <li>№8 Small businesses employ almost half…
             <span class="p-src">Source: advocacy.sba.gov</span></li>
-          <li>№7 Federal minimum wage $7.25/hour
-            <span class="p-src">Source: beta.dol.gov</span></li>
-          <li>№15 about 200 cups of coffee daily
+          <li>№11 federal minimum wage $7.25/hr
+            <span class="p-src">Source: webapps.dol.gov</span></li>
+          <li>№20 200 cups of coffee daily
             <span class="p-warn">— their own figure; attributed to the speaker</span></li>
         </ul>
       </div>
     </div>
-    <p class="preview-note">Everything above is actual output from a live run of this
-      pipeline — nothing is a mock-up. Press the button and it makes tonight's
-      version in front of you.</p>
+    <p class="preview-note">Everything above is actual output from one live run of this
+      pipeline — nothing is a mock-up. <b>View a sample morning package</b> opens that
+      same run in full; <b>Run the overnight demo</b> makes tonight's in front of you.</p>
   </aside>
+  </div>
+
+  <div class="flow3">
+    <div class="f3">
+      <span class="f3-when">Tonight</span>
+      <b>9 raw interview clips</b>
+      <span class="f3-sub">dropped off after the shoot, straight from the card</span>
+    </div>
+    <div class="f3-arrow">→</div>
+    <div class="f3">
+      <span class="f3-when">While you sleep</span>
+      <b>The guarded overnight pass</b>
+      <span class="f3-sub">watch footage · hold off-record moments · check claims · cut</span>
+    </div>
+    <div class="f3-arrow">→</div>
+    <div class="f3">
+      <span class="f3-when">By morning</span>
+      <b>4 reviewable deliverables</b>
+      <span class="f3-sub">source-linked script · first cut · held-back record · caption sheet</span>
+    </div>
   </div>
 
   <section id="progress" class="hidden">
@@ -192,6 +233,11 @@
 
   <section id="results" class="hidden">
     <h2>Morning Report</h2>
+    <div id="sample-banner" class="sample-banner hidden">
+      <b>This is a sample morning package</b> — actual output from a previous live run of
+      this pipeline, shown instantly so you don't have to wait. Press
+      <b>Run the overnight demo</b> above and it produces tonight's version for real.
+    </div>
     <div id="volatility-alert" class="alert hidden"></div>
     <div class="nums" id="nums"></div>
 
@@ -214,7 +260,7 @@
     <div class="card">
       <a id="xlsx" href="#" download><b>caption-sheet.xlsx</b></a> —
       <a id="csv" href="#" download class="src">or as CSV</a>
-      <div class="src" style="margin-top:.6rem">
+      <div class="src" id="tpl-block" style="margin-top:.6rem">
         Optional: upload your programme's own form (.xlsx, or a scan of the paper pad as
         JPEG/PNG/PDF) and CurrentCut fills that too, formatting intact.
         <input type="file" id="tpl" accept=".xlsx,.xlsm,.jpg,.jpeg,.png,.pdf"
@@ -271,6 +317,7 @@ let voice = VOICE.en;
 
 $('#run').onclick = async () => {
   $('#run').disabled = true;
+  $('#sample-btn').disabled = true;
   $('#run').textContent = 'Starting…';
   $('#progress').classList.remove('hidden');
   const shoot = (document.querySelector('input[name="shoot"]:checked') || {}).value || 'en';
@@ -299,6 +346,7 @@ $('#own-run').onclick = async () => {
   const body = new FormData();
   files.forEach(f => body.append('files', f));
   $('#own-run').disabled = true; $('#run').disabled = true;
+  $('#sample-btn').disabled = true;
   msg.textContent = `Uploading ${files.length} clip${files.length>1?'s':''}…`;
   let r, d;
   try {
@@ -306,11 +354,13 @@ $('#own-run').onclick = async () => {
     d = await r.json();
   } catch (e) {
     msg.textContent = 'Upload failed — check your connection and try again.';
-    $('#own-run').disabled = false; $('#run').disabled = false; return;
+    $('#own-run').disabled = false; $('#run').disabled = false;
+    $('#sample-btn').disabled = false; return;
   }
   if (!r.ok) {
     msg.textContent = d.detail || 'The upload was not accepted.';
-    $('#own-run').disabled = false; $('#run').disabled = false; return;
+    $('#own-run').disabled = false; $('#run').disabled = false;
+    $('#sample-btn').disabled = false; return;
   }
   msg.textContent = 'Your footage is on the night shift — progress below.';
   projectId = d.project_id;
@@ -328,8 +378,37 @@ async function poll() {
   $('#run').textContent = s.state === 'done' ? voice.morning : 'Failed';
   $('#run').disabled = false;
   $('#own-run').disabled = false;
-  if (s.state === 'done') await loadResults();
+  $('#sample-btn').disabled = false;
+  if (s.state === 'done') await loadResults(liveSrc(projectId));
 }
+
+// Where the results section reads from: a live project, or the bundled sample
+// (a saved run of this same pipeline) so a visitor can see the morning package
+// without waiting six minutes.
+const liveSrc = id => ({
+  j: n => `/projects/${id}/${n}`,
+  csv: `/projects/${id}/telops.csv`,
+  xlsx: `/projects/${id}/telop-manuscript.xlsx`,
+  video: `/media/${id}/rough_cut.mp4`,
+  sample: false,
+});
+const SAMPLE_SRC = {
+  j: n => `/static/sample/${n}.json`,
+  csv: '/static/sample/telops.csv',
+  xlsx: '/static/sample/telop-manuscript.xlsx',
+  video: '/static/sample/rough_cut.mp4',
+  sample: true,
+};
+
+$('#sample-btn').onclick = async () => {
+  $('#sample-btn').disabled = true;
+  try {
+    await loadResults(SAMPLE_SRC);
+  } finally {
+    $('#sample-btn').disabled = false;
+  }
+  $('#results').scrollIntoView({behavior: 'smooth'});
+};
 
 function renderSteps(steps) {
   $('#steps').innerHTML = steps.map(s => `
@@ -362,14 +441,16 @@ function renderVolatilityAlert(items) {
     <ul>${items.map(i => `<li>${esc(i.claim_text)} — ${esc(i.why)}${i.note ? `: <em>${esc(i.note)}</em>` : ''}</li>`).join('')}</ul>`;
 }
 
-async function loadResults() {
+async function loadResults(src) {
   const [report, script, egress, trace] = await Promise.all([
-    fetch(`/projects/${projectId}/report`).then(r=>r.json()),
-    fetch(`/projects/${projectId}/script`).then(r=>r.json()),
-    fetch(`/projects/${projectId}/egress`).then(r=>r.json()),
-    fetch(`/projects/${projectId}/trace`).then(r=>r.json()),
+    fetch(src.j('report')).then(r=>r.json()),
+    fetch(src.j('script')).then(r=>r.json()),
+    fetch(src.j('egress')).then(r=>r.json()),
+    fetch(src.j('trace')).then(r=>r.json()),
   ]);
   $('#results').classList.remove('hidden');
+  $('#sample-banner').classList.toggle('hidden', !src.sample);
+  $('#tpl-block').classList.toggle('hidden', src.sample);
   renderVolatilityAlert(report.claims_to_recheck_before_lock || []);
 
   const cut = report.rough_cut || {};
@@ -428,13 +509,13 @@ async function loadResults() {
       <td class="src">${esc(t.output_summary||'')}</td>
     </tr>`).join('') + '</tbody>';
 
-  if (cut.mp4) { $('#cut').src = `/media/${projectId}/rough_cut.mp4`; }
+  if (cut.mp4) { $('#cut').src = src.video; }
 
   const TT = {name:'Name', data:'Data', comment:'Quote',
               place:'Location', title:'Title'};
-  const telops = await fetch(`/projects/${projectId}/telops`).then(r=>r.json());
-  $('#csv').href = `/projects/${projectId}/telops.csv`;
-  $('#xlsx').href = `/projects/${projectId}/telop-manuscript.xlsx`;
+  const telops = await fetch(src.j('telops')).then(r=>r.json());
+  $('#csv').href = src.csv;
+  $('#xlsx').href = src.xlsx;
   $('#telops').innerHTML = `<thead><tr>
       <th>No</th><th>IN / OUT</th><th>Type</th><th>On screen</th>
       <th>Source line</th><th>Note to the director</th>
