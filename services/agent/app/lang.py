@@ -64,6 +64,13 @@ CAPTION_AUDIENCE = {
 CREDIT_FORMAT = {JA: "出典 ◯◯", EN: "Source: ◯◯"}
 
 
+def cited(language: str, text: str, domain: str) -> str:
+    """A claim with its source, as it is burned into the preview."""
+    if language == JA:
+        return f"{text}（出典: {domain}）"
+    return f"{text} (Source: {domain})"
+
+
 # --- what the director is told --------------------------------------------
 # These land on the order sheet, so they are written in the language of the
 # person who will read it, not translated from the other one.

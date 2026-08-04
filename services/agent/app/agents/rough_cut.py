@@ -33,7 +33,7 @@ def render_rough_cut(project_id: str, lines: list[ScriptLine], assets: list[Asse
         if asset is None:
             continue
         clip = out_dir / f"clip_{line.order:03d}.mp4"
-        _cut_clip(Path(asset.storage_uri), line, clip)
+        _cut_clip(Path(asset.storage_uri), line, clip, index=line.order)
         clip_paths.append(clip)
         edl.append({
             "order": line.order,
@@ -71,26 +71,47 @@ def render_rough_cut(project_id: str, lines: list[ScriptLine], assets: list[Asse
 
 
 def _ff_escape(text: str) -> str:
-    """Escape a string for use inside a drawtext option value."""
+    """Escape a path for use inside a drawtext option value."""
     return (text.replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'")
             .replace(",", "\\,").replace("%", "\\%"))
 
 
-def _drawtext_caption(text: str) -> str:
-    if not text:
+# The burned-in caption is a preview aid; the caption sheet is the deliverable.
+# One line that fits the frame is the useful amount of it.
+CAPTION_CHARS = 68
+
+
+def _fit_caption(text: str) -> str:
+    text = " ".join(text.split())
+    return text if len(text) <= CAPTION_CHARS else text[:CAPTION_CHARS - 1].rstrip() + "…"
+
+
+def _drawtext_caption(text: str, out_dir: Path, index: int) -> str:
+    """drawtext reads the caption from a file, never from the filter string.
+
+    Escaping it inline is a losing game: an apostrophe closes the quoted value
+    and no amount of backslashes reopens it, so "small businesses' share" failed
+    the render outright and took the whole run with it. Japanese captions never
+    hit this — Japanese has no apostrophes — so it surfaced the first time the
+    demo ran in English.
+    """
+    if not text.strip():
         return ""
     font = Path(config.FONT_FILE)
     fontopt = f"fontfile='{_ff_escape(font.as_posix())}':" if font.exists() else ""
+    caption_file = out_dir / f"caption_{index:03d}.txt"
+    caption_file.write_text(_fit_caption(text), encoding="utf-8")
     return (
-        f",drawtext={fontopt}text='{_ff_escape(text)}':fontsize=36:fontcolor=white:borderw=2:"
+        f",drawtext={fontopt}textfile='{_ff_escape(caption_file.as_posix())}':"
+        f"fontsize=36:fontcolor=white:borderw=2:"
         f"bordercolor=black:x=(w-text_w)/2:y=h-90"
     )
 
 
-def _cut_clip(src: Path, line: ScriptLine, dst: Path) -> None:
+def _cut_clip(src: Path, line: ScriptLine, dst: Path, index: int = 0) -> None:
     duration = line.source_out_seconds - line.source_in_seconds
     vf = "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,fps=30" \
-         + _drawtext_caption(line.caption_text)
+         + _drawtext_caption(line.caption_text, dst.parent, index)
     subprocess.run(
         [config.FFMPEG, "-y", "-loglevel", "error",
          "-ss", f"{line.source_in_seconds:.3f}", "-t", f"{duration:.3f}", "-i", str(src),

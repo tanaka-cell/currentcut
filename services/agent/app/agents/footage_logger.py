@@ -3,11 +3,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import subprocess
 from pathlib import Path
 
 from .. import config
-from ..clients.gemini_client import gemini
+from ..clients.gemini_client import VIDEO_PROMPT_STRICT, gemini
 from ..models.schemas import Asset, Segment
 from ..storage import store
 
@@ -61,8 +62,37 @@ def _cache_key(asset: Asset) -> str:
     return hashlib.sha256("|".join(parts).encode("utf-8")).hexdigest()[:16]
 
 
+# 。？！ end a sentence on their own — Japanese puts no space after them. A full
+# stop only ends one when something follows it that is not more number: "$7.25
+# an hour" is one sentence, not two.
+_SENTENCE_END = re.compile(r"[。？！]|[.?!](?:\s|$)")
+
+
+def _sentences_in(transcript: str) -> int:
+    return len(_SENTENCE_END.findall(transcript.strip()))
+
+
+def coarsest_segment(raw: dict) -> int:
+    """How many sentences of speech the largest single segment swallowed.
+
+    One is fine. More means the model returned several utterances under one
+    timecode, and downstream that is not cosmetic: clearance is granted per
+    segment, so a whole interview in one segment is cleared or held as a block.
+    On one run that turned a five-answer interview into nothing, because the
+    last sentence was off the record.
+    """
+    return max((_sentences_in(s.get("transcript", "")) for s in raw.get("segments", [])),
+               default=0)
+
+
 def analyze_asset(project_id: str, asset: Asset) -> list[Segment]:
-    """Analyze one asset, reusing an earlier reading of the same input."""
+    """Analyze one asset, reusing an earlier reading of the same input.
+
+    A reading that lumps several sentences into one segment is rejected and
+    asked for again, once. Gemini returns per-utterance segments most of the
+    time and a single blob occasionally; accepting whichever arrives is what
+    made the demo's output swing between four sourced claims and almost none.
+    """
     cache_dir = config.DATA_DIR / "_analysis_cache"
     cache_dir.mkdir(parents=True, exist_ok=True)
     cache_file = cache_dir / f"{_cache_key(asset)}.{gemini.provider}.json"
@@ -70,8 +100,17 @@ def analyze_asset(project_id: str, asset: Asset) -> list[Segment]:
     if cache_file.exists():
         raw = json.loads(cache_file.read_text(encoding="utf-8"))
     else:
-        analysis = gemini.analyze_video(asset.storage_uri)
-        raw = json.loads(analysis.model_dump_json())
+        raw = json.loads(gemini.analyze_video(asset.storage_uri).model_dump_json())
+        if not gemini.mock and coarsest_segment(raw) > 1:
+            try:
+                retry = json.loads(gemini.analyze_video(
+                    asset.storage_uri, prompt=VIDEO_PROMPT_STRICT).model_dump_json())
+                # Keep whichever reading is finer. A retry that comes back just
+                # as coarse is not an improvement to prefer blindly.
+                if coarsest_segment(retry) < coarsest_segment(raw):
+                    raw = retry
+            except Exception:
+                pass  # the coarse reading is still a reading; carry on with it
         cache_file.write_text(json.dumps(raw, ensure_ascii=False), encoding="utf-8")
 
     segments = [

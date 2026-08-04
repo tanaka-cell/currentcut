@@ -6,6 +6,7 @@ line carries a segment_id, claim_ids, and an evidence status.
 """
 from __future__ import annotations
 
+from .. import lang
 from ..models.schemas import (
     Claim, Confidentiality, EvidenceStatus, Project, ResearchResult, ScriptLine, Segment,
 )
@@ -220,7 +221,7 @@ def _note(status: EvidenceStatus, claim: Claim | None,
         backers = evidence.supporting_domains(research_by_claim.get(claim.id, []))
         notes.append("Checked, but no primary source to credit"
                      + (f" (backed by {', '.join(backers)})" if backers else "")
-                     + ". Find the official release before adding a 出典.")
+                     + ". Find the official release before crediting a source.")
     if claim.volatility_note:
         notes.append(f"{claim.volatility_note} — confirm before locking.")
     return " ".join(notes)
@@ -244,7 +245,8 @@ def _caption_for(seg: Segment, claim: Claim | None,
         # payments vendor ended up printed under the national tax rates.
         citable = evidence.citable_source(research_by_claim.get(claim.id, []))
         if citable:
-            return f"{claim.claim_text}（出典: {citable.source_domain}）"
+            return lang.cited(lang.detect(claim.claim_text),
+                              claim.claim_text, citable.source_domain)
         # Checked, but with nobody worth naming. The figure still belongs on
         # screen; the attribution does not.
         return claim.claim_text

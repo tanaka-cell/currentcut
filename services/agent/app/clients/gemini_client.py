@@ -29,9 +29,7 @@ class VideoAnalysis(BaseModel):
     segments: list[RawSegment]
 
 
-VIDEO_PROMPT = """You are a broadcast footage logger for a factual TV feature.
-Analyze this footage and split it into segments (one per shot / utterance).
-For each segment give:
+_SEGMENT_FIELDS = """For each segment give:
 - start_seconds / end_seconds (numbers, from the start of THIS file)
 - speaker: name or role if identifiable from context, else ""
 - transcript: verbatim words spoken (original language; "" if no speech)
@@ -39,6 +37,30 @@ For each segment give:
 - shot_type: one of interview / broll / exterior / reaction / other
 - usability_score: 0-1, how usable this is in a broadcast edit (focus, audio, framing)
 Return ONLY JSON matching the schema."""
+
+# How the footage is cut up is not a stylistic choice downstream: confidentiality
+# is enforced per segment, and a claim inherits its segment's clearance. A whole
+# interview returned as one segment means one "off the record" at the end holds
+# back every usable answer in front of it — which is exactly what happened on one
+# run, and the morning report came out almost empty.
+VIDEO_PROMPT = f"""You are a broadcast footage logger for a factual TV feature.
+Split this footage into segments. **One segment per sentence of speech.** If a
+speaker says four sentences without a pause, that is four segments, not one —
+each with its own start and end. Only silent footage may be a single long
+segment.
+{_SEGMENT_FIELDS}"""
+
+# Sent when the first reading came back too coarse to work with. Naming the
+# failure is worth more than repeating the instruction.
+VIDEO_PROMPT_STRICT = f"""You are a broadcast footage logger for a factual TV feature.
+A previous pass returned one segment covering several sentences of speech. That
+is unusable: each sentence needs its own timecode, because they are cleared for
+broadcast individually.
+
+Split this footage so that **every sentence spoken is its own segment**, with the
+real start and end time of that sentence. Count the sentences you can hear and
+return that many speech segments.
+{_SEGMENT_FIELDS}"""
 
 
 class GeminiClient:
@@ -57,13 +79,13 @@ class GeminiClient:
         return self._client
 
     # ---------- video ----------
-    def analyze_video(self, video_path: str | Path) -> VideoAnalysis:
+    def analyze_video(self, video_path: str | Path, prompt: str = "") -> VideoAnalysis:
         video_path = Path(video_path)
         if self.mock:
             return self._mock_analysis(video_path)
-        return self._real_analysis(video_path)
+        return self._real_analysis(video_path, prompt or VIDEO_PROMPT)
 
-    def _real_analysis(self, video_path: Path) -> VideoAnalysis:
+    def _real_analysis(self, video_path: Path, prompt: str = VIDEO_PROMPT) -> VideoAnalysis:
         from google.genai import types
 
         client = self._real()
@@ -75,7 +97,7 @@ class GeminiClient:
             raise RuntimeError(f"Gemini file processing failed for {video_path.name}")
         response = client.models.generate_content(
             model=config.GEMINI_VIDEO_MODEL,
-            contents=[uploaded, VIDEO_PROMPT],
+            contents=[uploaded, prompt],
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
                 response_schema=VideoAnalysis,
