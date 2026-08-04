@@ -78,6 +78,15 @@ checked at all, so read the cases carefully.
   {ex_unnamed}. No source can ever be about the same entity, so it cannot be
   checked. Do NOT guess a name.
 
+A claim has to ASSERT something a viewer could be wrong about — a figure, a
+date, a rank, a comparison, a change. Skip anything that merely says the subject
+exists or that the speaker is subject to it. From "we pay the federal minimum
+wage here, seven twenty-five an hour", the claim is that the rate IS $7.25, not
+that a federal minimum wage exists; "there is a federal minimum wage" would be
+checked, confirmed, and put on screen saying nothing. Interviews are split one
+sentence per segment, so a sentence on its own often reads as a bare mention —
+use the CONTEXT to recover what was actually being asserted.
+
 Extract ALL THREE KINDS. own_business and unidentified_subject claims are not
 searched, but they are still spoken on camera and still need captions, so
 leaving them out loses them from the script and the telop sheet. Never drop a

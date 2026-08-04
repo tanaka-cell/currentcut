@@ -1,0 +1,31 @@
+{
+ "segments": [
+  {
+   "start_seconds": 0.0,
+   "end_seconds": 0.96,
+   "speaker": "Man",
+   "transcript": "off the record,",
+   "visual_summary": "A man in a beige shirt and denim apron is speaking to someone off-camera in what appears to be a coffee shop, with a large espresso machine behind him.",
+   "shot_type": "interview",
+   "usability_score": 1.0
+  },
+  {
+   "start_seconds": 0.96,
+   "end_seconds": 5.1,
+   "speaker": "Man",
+   "transcript": "uh we're signing a lease on a second location next month.",
+   "visual_summary": "A man wearing an apron and a beige shirt is speaking, looking towards the right side of the frame, with a coffee machine visible in the background.",
+   "shot_type": "interview",
+   "usability_score": 1.0
+  },
+  {
+   "start_seconds": 5.1,
+   "end_seconds": 7.5,
+   "speaker": "Man",
+   "transcript": "It hasn't been announced, so please don't use that.",
+   "visual_summary": "A man with a beard and an apron speaks and gestures with his hands, with a blurry background of a coffee shop.",
+   "shot_type": "interview",
+   "usability_score": 1.0
+  }
+ ]
+}

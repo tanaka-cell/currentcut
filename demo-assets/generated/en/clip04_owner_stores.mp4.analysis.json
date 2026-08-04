@@ -1,0 +1,22 @@
+{
+ "segments": [
+  {
+   "start_seconds": 0.0,
+   "end_seconds": 4.25,
+   "speaker": "Man in apron",
+   "transcript": "There are more than a hundred and fifty thousand convenience stores in this country now.",
+   "visual_summary": "A man with a beard and an apron speaks in a coffee shop, with a large espresso machine in the background.",
+   "shot_type": "interview",
+   "usability_score": 0.9
+  },
+  {
+   "start_seconds": 4.5,
+   "end_seconds": 6.6,
+   "speaker": "Man in apron",
+   "transcript": "Nearly all of them sell coffee.",
+   "visual_summary": "The man in the apron continues to speak in the coffee shop, gesturing slightly with his hand.",
+   "shot_type": "interview",
+   "usability_score": 0.9
+  }
+ ]
+}

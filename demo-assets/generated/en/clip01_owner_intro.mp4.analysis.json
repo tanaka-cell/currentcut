@@ -1,0 +1,22 @@
+{
+ "segments": [
+  {
+   "start_seconds": 0.08,
+   "end_seconds": 3.4,
+   "speaker": "Man in apron",
+   "transcript": "my father opened this place in 1978.",
+   "visual_summary": "A middle-aged man with a beard and an apron speaks in a cafe, with an espresso machine in the background, looking slightly to the left off-camera.",
+   "shot_type": "interview",
+   "usability_score": 1.0
+  },
+  {
+   "start_seconds": 4.28,
+   "end_seconds": 7.47,
+   "speaker": "Man in apron",
+   "transcript": "I have been behind this counter for 22 years.",
+   "visual_summary": "A middle-aged man with a beard and an apron speaks in a cafe, looking slightly to the left off-camera, with an espresso machine in the background.",
+   "shot_type": "interview",
+   "usability_score": 1.0
+  }
+ ]
+}

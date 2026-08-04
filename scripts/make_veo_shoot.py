@@ -172,13 +172,24 @@ def generate(shot: dict, c) -> Path:
         kwargs["image"] = types.Image.from_file(location=str(REFERENCE))
 
     print(f"[{shot['name']}] generating...", flush=True)
-    op = c.models.generate_videos(**kwargs)
-    waited = 0
-    while not op.done:
-        time.sleep(10)
-        waited += 10
-        op = c.operations.get(op)
-        print(f"  ...{waited}s", flush=True)
+    # A generation takes about a minute and the connection sometimes drops in
+    # the middle of one. Losing the whole shoot to a disconnect on clip eight is
+    # not a failure worth accepting.
+    for attempt in range(3):
+        try:
+            op = c.models.generate_videos(**kwargs)
+            waited = 0
+            while not op.done:
+                time.sleep(10)
+                waited += 10
+                op = c.operations.get(op)
+                print(f"  ...{waited}s", flush=True)
+            break
+        except Exception as exc:
+            if attempt == 2:
+                raise
+            print(f"  {type(exc).__name__}: {exc}; retrying", flush=True)
+            time.sleep(15)
 
     if not getattr(op, "response", None) or not op.response.generated_videos:
         raise RuntimeError(f"{shot['name']}: no video returned ({op})")

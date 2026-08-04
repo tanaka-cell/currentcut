@@ -1,0 +1,58 @@
+{
+ "segments": [
+  {
+   "start_seconds": 0.125,
+   "end_seconds": 2.045,
+   "speaker": "Cafe Owner",
+   "transcript": "We pay the federal minimum wage here.",
+   "visual_summary": "A man in a beige shirt and denim apron speaks directly to someone off-camera in a cafe, with a large espresso machine in the background.",
+   "shot_type": "interview",
+   "usability_score": 1.0
+  },
+  {
+   "start_seconds": 2.165,
+   "end_seconds": 2.485,
+   "speaker": "",
+   "transcript": "Mhm.",
+   "visual_summary": "A man in a beige shirt and denim apron listens attentively to someone off-camera in a cafe, with a large espresso machine in the background.",
+   "shot_type": "interview",
+   "usability_score": 1.0
+  },
+  {
+   "start_seconds": 3.115,
+   "end_seconds": 4.995,
+   "speaker": "Cafe Owner",
+   "transcript": "$7.25 an hour.",
+   "visual_summary": "A man in a beige shirt and denim apron speaks directly to someone off-camera in a cafe, with a large espresso machine in the background.",
+   "shot_type": "interview",
+   "usability_score": 1.0
+  },
+  {
+   "start_seconds": 5.105,
+   "end_seconds": 5.375,
+   "speaker": "",
+   "transcript": "Mhm.",
+   "visual_summary": "A man in a beige shirt and denim apron listens attentively to someone off-camera in a cafe, with a large espresso machine in the background.",
+   "shot_type": "interview",
+   "usability_score": 1.0
+  },
+  {
+   "start_seconds": 5.515,
+   "end_seconds": 7.415,
+   "speaker": "Cafe Owner",
+   "transcript": "It hasn't changed since 2009.",
+   "visual_summary": "A man in a beige shirt and denim apron speaks directly to someone off-camera in a cafe, with a large espresso machine in the background.",
+   "shot_type": "interview",
+   "usability_score": 1.0
+  },
+  {
+   "start_seconds": 7.515,
+   "end_seconds": 7.785,
+   "speaker": "",
+   "transcript": "Mhm.",
+   "visual_summary": "A man in a beige shirt and denim apron listens attentively to someone off-camera in a cafe, with a large espresso machine in the background.",
+   "shot_type": "interview",
+   "usability_score": 1.0
+  }
+ ]
+}

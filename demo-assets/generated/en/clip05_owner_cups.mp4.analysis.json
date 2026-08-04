@@ -1,0 +1,22 @@
+{
+ "segments": [
+  {
+   "start_seconds": 0.0,
+   "end_seconds": 3.0,
+   "speaker": "Shop Owner",
+   "transcript": "We do about 200 cups a day.",
+   "visual_summary": "A man in a beige shirt and denim apron is speaking, standing in front of a coffee machine in a cafe.",
+   "shot_type": "interview",
+   "usability_score": 0.9
+  },
+  {
+   "start_seconds": 3.0,
+   "end_seconds": 7.0,
+   "speaker": "Shop Owner",
+   "transcript": "Um, 10 years ago it was closer to 300.",
+   "visual_summary": "A man in a beige shirt and denim apron is speaking, standing in front of a coffee machine in a cafe.",
+   "shot_type": "interview",
+   "usability_score": 0.9
+  }
+ ]
+}

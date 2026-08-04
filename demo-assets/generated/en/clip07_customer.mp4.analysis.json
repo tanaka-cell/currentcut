@@ -1,0 +1,22 @@
+{
+ "segments": [
+  {
+   "start_seconds": 0.0,
+   "end_seconds": 4.1,
+   "speaker": "Elderly Woman",
+   "transcript": "You can taste the difference when somebody actually makes it by hand.",
+   "visual_summary": "An elderly Black woman with gray hair, wearing a yellow cardigan, speaks while holding a coffee cup at a cafe counter.",
+   "shot_type": "interview",
+   "usability_score": 0.9
+  },
+  {
+   "start_seconds": 4.5,
+   "end_seconds": 7.1,
+   "speaker": "Elderly Woman",
+   "transcript": "A lot of the shops along this street have closed up.",
+   "visual_summary": "The elderly Black woman continues to speak at the cafe counter, looking off-screen.",
+   "shot_type": "interview",
+   "usability_score": 0.9
+  }
+ ]
+}
