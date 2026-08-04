@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from .. import config, lang
+from .. import config, lang, progress
 from ..clients.parallel_client import EgressBlocked, parallel
 from ..models.schemas import Claim, EvidenceStatus, ResearchResult, Segment, now_iso
 from ..storage import store
@@ -29,10 +29,14 @@ def research_claims(
         segment = seg_by_id.get(claim.segment_id)
         if segment is None:
             continue
+        progress.emit(project_id, "parallel_research", "running",
+                       f"Checking: {claim.claim_text}")
         try:
             results = parallel.search_for_claim(project_id, claim, segment, after_date=after_date)
-        except EgressBlocked:
+        except EgressBlocked as exc:
             # Logged by the gate; the claim simply stays unverified.
+            progress.emit(project_id, "parallel_research", "blocked",
+                           f"Held back: {claim.claim_text} — {exc}")
             claim.verification_status = EvidenceStatus.UNVERIFIED
             claim.last_checked_at = now_iso()
             store.put(project_id, "claims", claim)
@@ -89,16 +93,21 @@ def research_claims(
             years = sorted({r.value_as_of_year for r in stale if r.value_as_of_year})
             claim.volatility_note = lang.stale_evidence(language, years[0])
             claim.recheck_before_lock = True
+            claim.recheck_reason = "stale_evidence"
         elif qualifiers:
             claim.volatility_note = qualifiers[0]
             claim.recheck_before_lock = True
+            claim.recheck_reason = "source_states_a_date"
         elif claim.volatility == "high" and claim.verification_status in (
                 EvidenceStatus.PRIMARY_SOURCE_CONFIRMED, EvidenceStatus.MULTIPLE_SOURCES_CONFIRMED):
             claim.recheck_before_lock = True
+            claim.recheck_reason = "volatile_kind"
 
         claim.last_checked_at = now_iso()
         store.put(project_id, "claims", claim)
         all_results.extend(results)
+        progress.emit(project_id, "parallel_research", "done",
+                       f"{claim.claim_text} → {claim.verification_status.value.replace('_', ' ').lower()}")
 
     store.put_many(project_id, "research_results", all_results)
     return all_results

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CurrentCut — a first cut that arrives sourced</title>
+<title>CurrentCut — a source-linked first cut by morning</title>
 <style>
   :root{
     --paper:#fbf9f5; --card:#ffffff; --line:#e2ddd2;
@@ -36,6 +36,18 @@
   .step-out{font-family:var(--mono);font-size:.8rem;color:var(--ink-soft);text-align:right}
   .running .mark{color:var(--accent)} .completed .mark{color:var(--ok)}
   .failed .mark{color:var(--stop)} .pending{opacity:.45}
+  .log-row{border-bottom:0!important;padding:0!important}
+  .live-log{list-style:none;margin:.1rem 0 .5rem 2.25rem;padding:0;font-size:.82rem}
+  .live-log li{display:flex;gap:.5rem;padding:.15rem 0;border:0;color:var(--ink-faint)}
+  .live-log .mark{width:1.3rem;flex:none;font-family:var(--mono)}
+  .live-log .log-running .mark{color:var(--accent)}
+  .live-log .log-done .mark{color:var(--ok)}
+  .live-log .log-blocked{color:var(--warn)}
+  .live-log .log-blocked .mark{color:var(--stop)}
+  .alert{background:#fbf1de;border:1px solid var(--warn);border-radius:4px;
+         padding:.85rem 1.1rem;margin:0 0 1rem;color:var(--warn);font-size:.9rem}
+  .alert b{display:block;margin-bottom:.35rem;color:var(--ink)}
+  .alert ul{margin:.3rem 0 0;padding-left:1.2rem}
   .nums{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.75rem;margin:1rem 0}
   .num{background:var(--card);border:1px solid var(--line);border-radius:4px;padding:.9rem 1rem}
   .num b{display:block;font-family:var(--mono);font-size:1.7rem;font-weight:600;line-height:1.1}
@@ -62,14 +74,17 @@
 <div class="wrap">
 
   <h1>CurrentCut</h1>
-  <p class="tagline">Rest after the shoot. Wake up to a first cut.</p>
+  <p class="tagline">Rest after the shoot. Wake up to a source-linked first cut
+    for TV directors — unchecked claims clearly marked, held-back moments
+    shown for review.</p>
 
   <p class="lede">
-    A director shoots a 5–15 minute factual feature, then spends the night alone with the
-    footage: logging it, checking the numbers, drafting a structure. CurrentCut works that
-    shift. By morning there is a first cut — and unlike an ordinary automatic rough cut,
-    <strong>every factual line carries the source it was checked against, and off-record
-    material has already been removed.</strong>
+    After a factual-TV shoot, the director's night shift begins: logging
+    footage, protecting off-record moments, checking claims, and building the
+    story before the edit. CurrentCut runs that workflow overnight. By morning,
+    it delivers a rough cut whose <strong>factual lines link to the sources
+    checked — or state why none is attached — plus a reviewable record of
+    every segment held back.</strong>
   </p>
 
   <div class="cta">
@@ -96,6 +111,7 @@
 
   <section id="results" class="hidden">
     <h2>Morning Report</h2>
+    <div id="volatility-alert" class="alert hidden"></div>
     <div class="nums" id="nums"></div>
 
     <h2>The script, line by line</h2>
@@ -135,7 +151,7 @@
   </section>
 
   <footer>
-    Gemini · Google Agent Development Kit · Parallel Search API · FFmpeg.
+    Gemini · Google ADK · Parallel Search API · FFmpeg.
     Demo footage is synthetic and fictional; the speakers are not real people.
     Confidentiality controls are application-layer: restricted material is kept out of
     search, script and cut by this service, but the media still exists in storage.
@@ -146,6 +162,7 @@
 const $ = s => document.querySelector(s);
 const esc = s => (s??'').toString().replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const MARK = {pending:'·', running:'▸', completed:'✓', failed:'✕'};
+const LOGMARK = {running:'▸', done:'✓', blocked:'⚠'};
 
 const EV = {
   FOOTAGE_CONFIRMED:['t-ok','footage'],
@@ -188,7 +205,28 @@ function renderSteps(steps) {
       <span class="step-label">${esc(s.label)}</span>
       <span class="step-detail">${esc(s.detail)}${s.provider ? ` · <code>${esc(s.provider)}</code>` : ''}</span>
       <span class="step-out">${esc(s.output || '')}</span>
-    </li>`).join('');
+    </li>
+    ${renderLog(s.log)}`).join('');
+}
+
+function renderLog(log) {
+  if (!log || !log.length) return '';
+  return `<li class="log-row"><ul class="live-log">` +
+    log.map(e => `<li class="log-${e.state}">
+        <span class="mark">${LOGMARK[e.state] || '·'}</span><span>${esc(e.text)}</span>
+      </li>`).join('') +
+    `</ul></li>`;
+}
+
+// Figures that were confirmed tonight but carry a date on them — a stated
+// expiry, or evidence that describes an earlier year. Still confirmed; just the
+// part of the report with a shelf life, put where a director cannot miss it.
+function renderVolatilityAlert(items) {
+  const el = $('#volatility-alert');
+  if (!items.length) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+  el.classList.remove('hidden');
+  el.innerHTML = `<b>Check ${items.length === 1 ? 'this figure' : `these ${items.length} figures`} again before you lock the structure:</b>
+    <ul>${items.map(i => `<li>${esc(i.claim_text)} — ${esc(i.why)}${i.note ? `: <em>${esc(i.note)}</em>` : ''}</li>`).join('')}</ul>`;
 }
 
 async function loadResults() {
@@ -199,6 +237,7 @@ async function loadResults() {
     fetch(`/projects/${projectId}/trace`).then(r=>r.json()),
   ]);
   $('#results').classList.remove('hidden');
+  renderVolatilityAlert(report.claims_to_recheck_before_lock || []);
 
   const cut = report.rough_cut || {};
   $('#nums').innerHTML = [

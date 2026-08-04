@@ -10,7 +10,7 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-from . import config
+from . import config, progress
 from .agents import claims as claims_agent
 from .agents import confidentiality as conf_agent
 from .agents import footage_logger, research, scriptwriter, telop
@@ -95,12 +95,17 @@ def step_ingest(project_id: str, video_paths: list[str]) -> list[Asset]:
 def step_analyze(project_id: str) -> list[Segment]:
     assets = store.list(project_id, "assets", Asset)
     segments: list[Segment] = []
-    for asset in assets:
-        segments.extend(_record(
+    for i, asset in enumerate(assets, 1):
+        progress.emit(project_id, "footage_logger", "running",
+                       f"Watching clip {i}/{len(assets)}: {asset.filename}")
+        clip_segments = _record(
             project_id, "footage_logger", gemini.provider, config.GEMINI_VIDEO_MODEL,
             lambda a=asset: footage_logger.analyze_asset(project_id, a),
             input_summary=asset.filename,
-        ))
+        )
+        progress.emit(project_id, "footage_logger", "done",
+                       f"Clip {i}/{len(assets)}: {asset.filename} — {len(clip_segments)} segments")
+        segments.extend(clip_segments)
     return segments
 
 
@@ -203,11 +208,28 @@ def morning_report(project_id: str, cut: dict | None = None) -> dict:
     # not have to go looking for: the material is there, and only a boundary
     # decision stands between them and it.
     awaiting_boundary = [s for s in segments if s.release_proposal]
+    # A dated claim is not the same as a claim that will change. A source can
+    # state a real expiry ("valid until Aug 31"), or it can simply be the only
+    # evidence and describe 2014, or it can carry a date that is the date a
+    # still-current rule came in. Only the first two are worth a director's
+    # attention before they lock the structure, and they are not the same
+    # warning — so each says which it is rather than sharing one line.
+    _RECHECK_WORDING = {
+        "source_states_a_date": "a source attaches a date or period to this figure",
+        "stale_evidence": "the only source found describes an earlier year",
+    }
+    volatile = [c for c in claims
+                if c.recheck_before_lock and c.recheck_reason in _RECHECK_WORDING]
     return {
         "status": "FIRST CUT READY FOR DIRECTOR REVIEW",
         "footage_minutes_analyzed": round(total_footage / 60, 1),
         "claims_checked": len(checked),
         "confidential_moments_protected": len(protected),
+        "claims_to_recheck_before_lock": [
+            {"claim_id": c.id, "claim_text": c.claim_text, "note": c.volatility_note,
+             "why": _RECHECK_WORDING[c.recheck_reason]}
+            for c in volatile
+        ],
         "decisions_need_review": len(needs_review)
         + len([c for c in claims if c.requires_human_approval]),
         "held_awaiting_your_decision": [

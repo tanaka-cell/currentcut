@@ -11,6 +11,7 @@ import re
 
 from pydantic import BaseModel
 
+from .. import progress
 from ..clients.gemini_client import gemini
 from ..models.schemas import (
     Confidentiality, ProposedRelease, RESTRICTED_LABELS, Segment, new_id,
@@ -232,8 +233,15 @@ def confirm_release(project_id: str, segment: Segment, release_indexes: list[int
     return pieces
 
 
+def _snippet(seg: Segment) -> str:
+    text = seg.transcript.strip() or seg.visual_summary.strip() or "(no speech)"
+    return text if len(text) <= 60 else text[:57] + "…"
+
+
 def classify_segments(project_id: str, segments: list[Segment]) -> list[Segment]:
     for seg in segments:
+        progress.emit(project_id, "confidentiality", "running",
+                       f"{seg.speaker or 'segment'}: “{_snippet(seg)}”")
         rule_label, rule_reason = _rule_label(seg)
         final_label, final_reason = rule_label, rule_reason
 
@@ -271,6 +279,13 @@ def classify_segments(project_id: str, segments: list[Segment]) -> list[Segment]
         # the director can settle it in one look instead of losing the material.
         seg.release_proposal = (propose_release(seg)
                                 if final_label in RESTRICTED_LABELS else [])
+
+        if final_label in RESTRICTED_LABELS:
+            progress.emit(project_id, "confidentiality", "blocked",
+                           f"{seg.speaker or 'segment'}: held back — {final_label.value} ({final_reason})")
+        else:
+            progress.emit(project_id, "confidentiality", "done",
+                           f"{seg.speaker or 'segment'}: labelled {final_label.value}")
 
     store.put_many(project_id, "segments", segments)
     return segments

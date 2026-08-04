@@ -151,6 +151,11 @@ class Claim(BaseModel):
     # scheduled change — a generic "prices move" is not worth the director's time.
     volatility_note: str = ""
     recheck_before_lock: bool = False
+    # Why the recheck flag was raised. Three different situations used to share
+    # one flag, which made the morning alert say "may change before air" about a
+    # tax rate *introduced* in 2019. Only the first two carry a note worth
+    # putting in front of a director.
+    recheck_reason: str = ""  # stale_evidence | source_states_a_date | volatile_kind
 
 
 class ResearchResult(BaseModel):
@@ -240,6 +245,19 @@ class ChangeEvent(BaseModel):
     duration_delta_seconds: float = 0
     approval_status: str = "pending"  # pending | applied | ignored
     detected_at: str = Field(default_factory=now_iso)
+
+
+class ProgressEvent(BaseModel):
+    """One line in the live run log — one clip watched, one segment labelled,
+    one claim checked. AgentRun below is one row per pipeline step, which is
+    too coarse to show what a step is actually doing while it runs; this is
+    the finer-grained feed the Overnight Run screen polls."""
+    id: str = Field(default_factory=lambda: new_id("evt"))
+    project_id: str
+    step: str  # matches demo.STEPS name, e.g. "parallel_research"
+    state: str = "running"  # running | done | blocked
+    text: str = ""
+    created_at: str = Field(default_factory=now_iso)
 
 
 class AgentRun(BaseModel):

@@ -11,7 +11,7 @@ import threading
 import traceback
 from pathlib import Path
 
-from . import adk_pipeline, config
+from . import adk_pipeline, config, progress
 from .models.schemas import AgentRun, Project
 from .storage import store
 
@@ -98,14 +98,19 @@ def status(project_id: str) -> dict:
     for name, label, detail in STEPS:
         run = by_name.get(name)
         matching = [r for r in runs if r.agent_name == name]
+        state = run.status if run else "pending"
         steps.append({
             "name": name,
             "label": label,
             "detail": detail,
-            "state": run.status if run else "pending",
+            "state": state,
             "provider": run.provider if run else "",
             "output": "; ".join(r.output_summary for r in matching if r.output_summary)[:120],
             "latency_ms": sum(r.latency_ms for r in matching),
+            # Live sub-log — what this step is doing right now (clip N/M being
+            # watched, a claim being checked, a segment held back). Only worth
+            # fetching for the step actually running.
+            "log": progress.recent(project_id, name) if state == "running" else [],
         })
     job["steps"] = steps
     job["project_id"] = project_id
