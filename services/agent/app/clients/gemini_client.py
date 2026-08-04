@@ -101,6 +101,13 @@ class GeminiClient:
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
                 response_schema=VideoAnalysis,
+                # Rushes are logged by what is said, not by pixel detail: the
+                # transcript drives clearance, claims and timecodes. At default
+                # resolution a file over an hour does not fit the context window
+                # at all — the length a factual shoot actually produces. Low
+                # resolution is what makes a real tape length possible, and it
+                # costs a third of the tokens.
+                media_resolution=types.MediaResolution.MEDIA_RESOLUTION_LOW,
             ),
         )
         parsed = response.parsed

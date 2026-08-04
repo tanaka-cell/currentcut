@@ -29,6 +29,25 @@ def index():
     return (_STATIC / "index.html").read_text(encoding="utf-8")
 
 
+@app.get("/api/limits")
+def limits():
+    """What this instance will accept, straight from its own config.
+
+    The page used to carry these numbers as text and the browser as constants,
+    which is two more places to forget when a limit moves — and a visitor
+    reading a stale cap discovers the real one by having an upload rejected.
+    """
+    return {
+        "max_files": config.UPLOAD_MAX_FILES,
+        "max_file_mb": config.UPLOAD_MAX_FILE_MB,
+        "max_total_mb": config.UPLOAD_MAX_TOTAL_MB,
+        "max_total_minutes": config.UPLOAD_MAX_TOTAL_MINUTES,
+        "runs_per_day": config.UPLOAD_RUNS_PER_DAY,
+        "chunk_minutes": config.ANALYSIS_CHUNK_MINUTES,
+        "max_concurrency": config.MAX_CONCURRENCY,
+    }
+
+
 @app.post("/api/demo/start")
 def demo_start(shoot: str = ""):
     """Start a real overnight run on the bundled demo footage.

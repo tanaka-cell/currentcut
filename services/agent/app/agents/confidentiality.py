@@ -13,6 +13,7 @@ from pydantic import BaseModel
 
 from .. import progress
 from ..clients.gemini_client import gemini
+from ..fanout import fan_out
 from ..models.schemas import (
     Confidentiality, ProposedRelease, RESTRICTED_LABELS, Segment, new_id,
 )
@@ -238,31 +239,42 @@ def _snippet(seg: Segment) -> str:
     return text if len(text) <= 60 else text[:57] + "…"
 
 
+def _label_one(seg: Segment) -> tuple[Confidentiality, str]:
+    """The label for one segment: rules first, the model only to tighten."""
+    rule_label, rule_reason = _rule_label(seg)
+    final_label, final_reason = rule_label, rule_reason
+
+    if not gemini.mock and seg.transcript.strip():
+        try:
+            llm = gemini.structured(
+                _LLM_PROMPT.format(
+                    speaker=seg.speaker or "unknown",
+                    transcript=seg.transcript,
+                    visual=seg.visual_summary,
+                ),
+                _LlmLabel,
+            )
+            # Rules can only tighten, never loosen: take the stricter of the two.
+            if _SEVERITY.index(llm.label) > _SEVERITY.index(rule_label):
+                final_label, final_reason = llm.label, f"gemini: {llm.reason}"
+        except Exception as exc:  # LLM failure must not unblock anything
+            if rule_label == Confidentiality.PUBLIC:
+                final_label = Confidentiality.NEEDS_HUMAN_REVIEW
+                final_reason = f"llm classification failed ({exc}); failing closed"
+    return final_label, final_reason
+
+
 def classify_segments(project_id: str, segments: list[Segment]) -> list[Segment]:
-    for seg in segments:
+    """Label every segment. One model call each, several in flight: a night's
+    rushes is hundreds of segments, and each is judged on its own words."""
+    def look_at(seg: Segment) -> tuple[Confidentiality, str]:
         progress.emit(project_id, "confidentiality", "running",
                        f"{seg.speaker or 'segment'}: “{_snippet(seg)}”")
-        rule_label, rule_reason = _rule_label(seg)
-        final_label, final_reason = rule_label, rule_reason
+        return _label_one(seg)
 
-        if not gemini.mock and seg.transcript.strip():
-            try:
-                llm = gemini.structured(
-                    _LLM_PROMPT.format(
-                        speaker=seg.speaker or "unknown",
-                        transcript=seg.transcript,
-                        visual=seg.visual_summary,
-                    ),
-                    _LlmLabel,
-                )
-                # Rules can only tighten, never loosen: take the stricter of the two.
-                if _SEVERITY.index(llm.label) > _SEVERITY.index(rule_label):
-                    final_label, final_reason = llm.label, f"gemini: {llm.reason}"
-            except Exception as exc:  # LLM failure must not unblock anything
-                if rule_label == Confidentiality.PUBLIC:
-                    final_label = Confidentiality.NEEDS_HUMAN_REVIEW
-                    final_reason = f"llm classification failed ({exc}); failing closed"
+    labels = fan_out(segments, look_at)
 
+    for seg, (final_label, final_reason) in zip(segments, labels):
         seg.confidentiality = final_label
         seg.confidentiality_reason = final_reason
         seg.allow_script_use = final_label in (Confidentiality.PUBLIC, Confidentiality.EDITORIAL_ONLY)

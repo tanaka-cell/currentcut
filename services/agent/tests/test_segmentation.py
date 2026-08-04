@@ -11,8 +11,15 @@ the largest cause. A judge presses the button once.
 
 
 def _analysis(*transcripts):
+    """A reading that fits inside the clip it describes.
+
+    One second per segment: the clips these are read against are a couple of
+    seconds long, and five-second segments put the second utterance of a
+    two-second clip at 5–10s — a timecode for footage that does not exist.
+    The logger drops those now, so the fixture has to be physically possible.
+    """
     return {"segments": [
-        {"start_seconds": i * 5, "end_seconds": i * 5 + 5, "speaker": "Owner",
+        {"start_seconds": i, "end_seconds": i + 1, "speaker": "Owner",
          "transcript": t, "visual_summary": "v", "shot_type": "interview",
          "usability_score": 0.9}
         for i, t in enumerate(transcripts)]}

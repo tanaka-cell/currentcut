@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 from .. import lang
 from ..clients.gemini_client import gemini
+from ..fanout import fan_out
 from ..models.schemas import Claim, Segment, Verifiability
 from ..storage import store
 
@@ -128,32 +129,37 @@ def extract_claims(project_id: str, segments: list[Segment]) -> list[Claim]:
     # Speakers drop the subject after introducing it ("...and the price is
     # 1,980 yen"). Carry earlier utterances so the extractor can restore it.
     context = " / ".join(s.transcript for s in segments if s.transcript.strip())[:1200]
-    for seg in segments:
-        if not seg.transcript.strip():
-            continue
+    spoken = [s for s in segments if s.transcript.strip()]
+
+    def read_one(seg: Segment):
+        if gemini.mock:
+            return _mock_extract(seg.transcript)
+        try:
+            llm = gemini.structured(
+                _LLM_PROMPT.format(speaker=seg.speaker or "unknown",
+                                   transcript=seg.transcript, context=context,
+                                   **_examples(language)),
+                _LlmClaims,
+            )
+            return [
+                (_with_subject(c.claim_text, c.claim_subject), c.claim_type,
+                 c.safe_search_query, _verifiability(c.verifiability),
+                 [q for q in (c.publisher_search_query,) if q.strip()])
+                for c in llm.claims
+            ]
+        except Exception:
+            return _mock_extract(seg.transcript)  # degraded, still safe
+
+    # Read every segment at once, then fold the results in order. The folding
+    # stays sequential on purpose: "have I already seen this fact?" is answered
+    # against the claims kept so far, so the order decides which wording of a
+    # repeated fact is the one that gets verified.
+    per_segment = fan_out(spoken, read_one)
+
+    for seg, extracted in zip(spoken, per_segment):
         # Restricted segments are still analyzed internally (mining them for
         # claims is fine) but their claims may never reach external search.
         externally_searchable = seg.allow_external_search
-
-        if gemini.mock:
-            extracted = _mock_extract(seg.transcript)
-        else:
-            try:
-                llm = gemini.structured(
-                    _LLM_PROMPT.format(speaker=seg.speaker or "unknown",
-                                       transcript=seg.transcript, context=context,
-                                       **_examples(language)),
-                    _LlmClaims,
-                )
-                extracted = [
-                    (_with_subject(c.claim_text, c.claim_subject), c.claim_type,
-                     c.safe_search_query, _verifiability(c.verifiability),
-                     [q for q in (c.publisher_search_query,) if q.strip()])
-                    for c in llm.claims
-                ]
-            except Exception:
-                extracted = _mock_extract(seg.transcript)  # degraded, still safe
-
         for claim_text, claim_type, safe_query, verifiability, extra in extracted:
             if _seen_before(claim_text, claim_type, claims):
                 continue  # same fact restated; verify it once

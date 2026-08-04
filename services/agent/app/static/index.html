@@ -134,8 +134,10 @@
       <div class="hint">
         Runs for real — nothing here is pre-generated. Gemini watches the clips, the
         Parallel Search API checks the claims that clear the confidentiality gate, and
-        FFmpeg cuts the preview. <b>It takes five to six minutes</b>; the steps below
-        fill in as each one finishes.
+        FFmpeg cuts the preview. <b>This demo shoot takes five to six minutes</b>;
+        the steps below fill in as each one finishes. A real night's rushes takes
+        longer than that — long takes are split and read several at a time, so the
+        wait tracks how much footage there is, not how long you can sit and watch.
       </div>
       <div class="hint" style="margin-top:.6rem">
         Footage:
@@ -152,10 +154,14 @@
         <p class="src" style="margin-top:0">
           Pick the clips from tonight's shoot (the copies you already made off the
           card) and CurrentCut runs the same overnight pass on them.
-          Public-demo caps: up to <span id="cap-files">9</span> clips,
-          <span id="cap-file">100</span> MB each,
-          <span id="cap-total">400</span> MB / <span id="cap-min">20</span> minutes
+          This public instance accepts up to <span id="cap-files">12</span> clips,
+          <span id="cap-file">300</span> MB each,
+          <span id="cap-total">900</span> MB / <span id="cap-min">60</span> minutes
           of footage in total, and a shared daily run budget.
+          Those are limits of a shared demo running on our API keys and one small
+          machine, not of the pipeline: a take longer than
+          <span id="cap-chunk">10</span> minutes is split and its pieces read in
+          parallel, so a private deployment raises these with a config change.
         </p>
         <input type="file" id="own-files" multiple accept=".mp4,.mov,.m4v,video/mp4,video/quicktime">
         <div style="margin-top:.6rem">
@@ -331,7 +337,19 @@ $('#run').onclick = async () => {
 
 // Same run, the visitor's clips. Size and count are pre-checked here only to
 // save them a doomed upload — the server re-checks everything.
-const CAPS = {files: 9, fileMB: 100, totalMB: 400};
+// Filled from /api/limits so the page and the server cannot drift apart. The
+// values here are only what the first visitor sees before that lands; the
+// server re-checks everything anyway.
+const CAPS = {files: 12, fileMB: 300, totalMB: 900};
+fetch('/api/limits').then(r => r.json()).then(l => {
+  CAPS.files = l.max_files; CAPS.fileMB = l.max_file_mb; CAPS.totalMB = l.max_total_mb;
+  const put = (id, v) => { const el = $('#' + id); if (el) el.textContent = v; };
+  put('cap-files', l.max_files);
+  put('cap-file', l.max_file_mb);
+  put('cap-total', l.max_total_mb);
+  put('cap-min', l.max_total_minutes);
+  put('cap-chunk', l.chunk_minutes);
+}).catch(() => {});
 $('#own-run').onclick = async () => {
   const files = [...$('#own-files').files];
   const msg = $('#own-msg');

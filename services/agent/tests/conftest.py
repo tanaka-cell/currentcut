@@ -1,7 +1,17 @@
-"""Test env is prepared BEFORE app modules are imported (config reads env at import)."""
+"""Test env is prepared BEFORE app modules are imported (config reads env at import).
+
+All of it here at import time, not in a fixture. A fixture runs when the first
+test asks for it, which is too late if any earlier test imported the app first —
+config resolves its paths once, at import, and after that the redirect does
+nothing. The symptom is quiet and nasty: the suite reads and writes the
+repository's own data directory, tests answer each other out of the analysis
+cache, and a run's result depends on what an earlier run left behind.
+"""
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -11,13 +21,18 @@ sys.path.insert(0, str(SERVICE_ROOT))
 
 os.environ["CURRENTCUT_FORCE_MOCK"] = "gemini,parallel"
 
+_WORKDIR = Path(tempfile.mkdtemp(prefix="currentcut-tests-"))
+os.environ["CURRENTCUT_DATA_DIR"] = str(_WORKDIR / "data")
+os.environ["CURRENTCUT_OUTPUT_DIR"] = str(_WORKDIR / "output")
+
+
+def pytest_sessionfinish(session, exitstatus):
+    shutil.rmtree(_WORKDIR, ignore_errors=True)
+
 
 @pytest.fixture(scope="session")
-def workdir(tmp_path_factory):
-    root = tmp_path_factory.mktemp("currentcut")
-    os.environ["CURRENTCUT_DATA_DIR"] = str(root / "data")
-    os.environ["CURRENTCUT_OUTPUT_DIR"] = str(root / "output")
-    return root
+def workdir() -> Path:
+    return _WORKDIR
 
 
 def _clip_maker(clips_dir: Path):

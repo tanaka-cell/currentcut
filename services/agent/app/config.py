@@ -93,12 +93,28 @@ def demo_dir(shoot: str = "") -> Path:
 # upload form is an invitation to spend our quota. Sized for a short factual
 # feature's selects, not a full rushes card.
 UPLOAD_DIR = Path(os.getenv("CURRENTCUT_UPLOAD_DIR", str(DATA_DIR / "uploads"))).resolve()
-UPLOAD_MAX_FILES = int(os.getenv("CURRENTCUT_UPLOAD_MAX_FILES", "9"))
-UPLOAD_MAX_FILE_MB = int(os.getenv("CURRENTCUT_UPLOAD_MAX_FILE_MB", "100"))
-UPLOAD_MAX_TOTAL_MB = int(os.getenv("CURRENTCUT_UPLOAD_MAX_TOTAL_MB", "400"))
-UPLOAD_MAX_TOTAL_MINUTES = int(os.getenv("CURRENTCUT_UPLOAD_MAX_TOTAL_MINUTES", "20"))
+# Caps for the public instance only — it runs on our keys and on one small
+# Cloud Run machine whose filesystem is its memory. The pipeline itself is not
+# built to these numbers: takes longer than the chunk size are split and read
+# in parallel, so length is a question of how long you are willing to wait and
+# how much disk the deployment has, not of what the code can hold. A private
+# deployment raises them with environment variables and nothing else.
+UPLOAD_MAX_FILES = int(os.getenv("CURRENTCUT_UPLOAD_MAX_FILES", "12"))
+UPLOAD_MAX_FILE_MB = int(os.getenv("CURRENTCUT_UPLOAD_MAX_FILE_MB", "300"))
+UPLOAD_MAX_TOTAL_MB = int(os.getenv("CURRENTCUT_UPLOAD_MAX_TOTAL_MB", "900"))
+UPLOAD_MAX_TOTAL_MINUTES = int(os.getenv("CURRENTCUT_UPLOAD_MAX_TOTAL_MINUTES", "60"))
 UPLOAD_RUNS_PER_DAY = int(os.getenv("CURRENTCUT_UPLOAD_RUNS_PER_DAY", "8"))
 UPLOAD_ALLOWED_SUFFIXES = (".mp4", ".mov", ".m4v")
+
+# How many provider calls are in flight at once. Every heavy step is one call
+# per clip or per segment with nothing shared between them, so this is the
+# single number that decides whether a night's rushes takes an hour or a day.
+# Bounded by the provider's rate limit, not by the machine.
+MAX_CONCURRENCY = int(os.getenv("CURRENTCUT_MAX_CONCURRENCY", "6"))
+# Rushes arrive as long takes, not as eight-second clips. Anything longer than
+# this is split before analysis: it keeps a single request inside the model's
+# context window, and lets the pieces of one long take be read in parallel.
+ANALYSIS_CHUNK_MINUTES = int(os.getenv("CURRENTCUT_ANALYSIS_CHUNK_MINUTES", "10"))
 
 PARALLEL_BASE_URL = os.getenv("PARALLEL_BASE_URL", "https://api.parallel.ai")
 PARALLEL_MAX_SEARCHES_PER_RUN = int(os.getenv("PARALLEL_MAX_SEARCHES_PER_RUN", "20"))

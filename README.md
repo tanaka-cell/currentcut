@@ -185,6 +185,40 @@ repo — but the underlying media still exists in storage, and Gemini processes
 all footage under Google's API terms. No claim is made of absolute
 non-leakage; the Egress Log exists precisely so humans can audit what left.
 
+## Footage volume (honest)
+
+A ten-minute factual feature is cut from hours of rushes, not from a handful of
+short clips. What that costs, measured rather than assumed:
+
+- **Watching is the cheap part.** Rushes are logged by what is said, so video
+  goes to Gemini at low media resolution: roughly 100 tokens per second of
+  footage, and a file up to three hours fits a single request. Three hours is
+  on the order of a million input tokens.
+- **Long takes are split, not refused.** Anything longer than
+  `CURRENTCUT_ANALYSIS_CHUNK_MINUTES` is cut at keyframes and the pieces are
+  read in parallel, then the clock is put back. Boundaries land on keyframes so
+  a piece's first frame is byte-identical to the source at that timestamp — the
+  timecode in the caption sheet is the one that finds the moment on the tape.
+  Pieces exist only while being read and are deleted immediately after.
+- **Concurrency is the wall-clock lever.** Every heavy step is one call per clip
+  or per segment with nothing shared between them, so they run
+  `CURRENTCUT_MAX_CONCURRENCY` at a time. Done one after another, a night's
+  rushes becomes a day's wait.
+- **Storage is the real constraint, and it is a deployment choice.** Cloud Run's
+  filesystem is memory, so every uploaded clip counts against the instance's
+  RAM. The public instance is small, and its upload caps are sized to it. A
+  deployment ingesting real rush volumes wants a Cloud Storage volume mount
+  rather than a larger memory number.
+- **Not built yet:** ingest that runs while the director sleeps (a watch folder
+  or resumable upload, rather than a browser holding several gigabytes), and a
+  cheap first pass that locates speech so the detailed read only covers the
+  parts that matter. Both are the obvious next steps; neither is pretended to
+  exist.
+
+The caps on the landing page are served from `/api/limits`, which reports this
+instance's own configuration. They are demo policy on shared API keys, not
+limits of the pipeline.
+
 ## Status / roadmap
 
 See `STATUS.md` (honest, per-phase) and `PLAN.md`. Deploy target: Cloud Run +

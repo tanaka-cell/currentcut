@@ -7,10 +7,12 @@ genuinely drives the run when credentials are present.
 """
 from __future__ import annotations
 
+import itertools
 import time
 from pathlib import Path
 
 from . import config, progress
+from .fanout import fan_out
 from .agents import claims as claims_agent
 from .agents import confidentiality as conf_agent
 from .agents import footage_logger, research, scriptwriter, telop
@@ -93,20 +95,27 @@ def step_ingest(project_id: str, video_paths: list[str]) -> list[Asset]:
 
 
 def step_analyze(project_id: str) -> list[Segment]:
+    """Watch every clip. Several at once — this is the longest step by far, and
+    the clips have nothing to say to each other."""
     assets = store.list(project_id, "assets", Asset)
-    segments: list[Segment] = []
-    for i, asset in enumerate(assets, 1):
+    total = len(assets)
+    done = itertools.count(1)
+
+    def watch(asset: Asset) -> list[Segment]:
         progress.emit(project_id, "footage_logger", "running",
-                       f"Watching clip {i}/{len(assets)}: {asset.filename}")
-        clip_segments = _record(
+                       f"Watching {asset.filename}")
+        return _record(
             project_id, "footage_logger", gemini.provider, config.GEMINI_VIDEO_MODEL,
             lambda a=asset: footage_logger.analyze_asset(project_id, a),
             input_summary=asset.filename,
         )
+
+    def landed(asset: Asset, clip_segments: list[Segment]) -> None:
         progress.emit(project_id, "footage_logger", "done",
-                       f"Clip {i}/{len(assets)}: {asset.filename} — {len(clip_segments)} segments")
-        segments.extend(clip_segments)
-    return segments
+                       f"Clip {next(done)}/{total}: {asset.filename}"
+                       f" — {len(clip_segments)} segments")
+
+    return [seg for clip in fan_out(assets, watch, on_result=landed) for seg in clip]
 
 
 def step_confidentiality(project_id: str) -> list[Segment]:
