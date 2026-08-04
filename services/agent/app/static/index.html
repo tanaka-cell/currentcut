@@ -206,14 +206,27 @@ const tc = s => { s=Math.max(0,s||0); const m=Math.floor(s/60), x=(s%60).toFixed
 
 let projectId = null;
 
+// The product's whole promise is "go rest" — the button gets to say it too.
+// One joke, told once: the working text, the morning-after text, and honesty
+// when something breaks.
+const VOICE = {
+  en: {working: "I've got it from here — go rest",
+       morning: 'Morning. Run it again?'},
+  ja: {working: 'あとはやっておくので、ゆっくり休んでください',
+       morning: 'おはようございます。もう一回まわしますか？'},
+};
+let voice = VOICE.en;
+
 $('#run').onclick = async () => {
   $('#run').disabled = true;
-  $('#run').textContent = 'Running…';
+  $('#run').textContent = 'Starting…';
   $('#progress').classList.remove('hidden');
   const shoot = (document.querySelector('input[name="shoot"]:checked') || {}).value || 'en';
+  voice = VOICE[shoot] || VOICE.en;
   const r = await fetch(`/api/demo/start?shoot=${encodeURIComponent(shoot)}`, {method:'POST'});
   if (!r.ok) { $('#run').textContent = 'Failed to start'; return; }
   projectId = (await r.json()).project_id;
+  $('#run').textContent = voice.working;
   poll();
 };
 
@@ -247,9 +260,10 @@ $('#own-run').onclick = async () => {
     msg.textContent = d.detail || 'The upload was not accepted.';
     $('#own-run').disabled = false; $('#run').disabled = false; return;
   }
-  msg.textContent = 'Running on your footage — progress below.';
+  msg.textContent = 'Your footage is on the night shift — progress below.';
   projectId = d.project_id;
-  $('#run').textContent = 'Running…';
+  voice = VOICE.en;
+  $('#run').textContent = voice.working;
   $('#progress').classList.remove('hidden');
   poll();
 };
@@ -259,7 +273,7 @@ async function poll() {
   const s = await r.json();
   renderSteps(s.steps || []);
   if (s.state === 'running') return setTimeout(poll, 1500);
-  $('#run').textContent = s.state === 'done' ? 'Run again' : 'Failed';
+  $('#run').textContent = s.state === 'done' ? voice.morning : 'Failed';
   $('#run').disabled = false;
   $('#own-run').disabled = false;
   if (s.state === 'done') await loadResults();
