@@ -1,0 +1,39 @@
+{"_comment": "Ground truth for eval/cases.jsonl. Written by reading each claim against the excerpts actually retrieved for it. supported = does this evidence establish this claim; citable = the domain that may be printed on air as the source, or null. See eval/README.md for how each call was made."}
+{"case_id": "case_0da9dc544f", "group": "us_public_record", "supported": true, "citable": "advocacy.sba.gov", "why": "SBA Office of Advocacy states 45.9% of private sector workers — the publisher of the figure, and 'almost half' is a fair reading of 45.9%."}
+{"case_id": "case_18d05b2492", "group": "us_public_record", "supported": true, "citable": "www.dol.gov", "why": "Department of Labor states $7.25 per hour. dol.gov sets it; usa.gov and worker.gov repeat it, webapps.dol.gov is an application host."}
+{"case_id": "case_a560886a18", "group": "us_public_record", "supported": true, "citable": "www.dol.gov", "why": "DOL's history table gives $7.25 effective July 24 2009. The claim names its own period, so 2009 evidence is the right evidence, not stale."}
+{"case_id": "case_4a805fcc51", "group": "us_public_record", "supported": true, "citable": null, "why": "151,975 stores (NACS, 2025) does establish 'more than 150,000'. But only trade bodies and trade press publish the count — nobody creditable, so the telop should carry the figure with no source line."}
+{"case_id": "case_d1c3466174", "group": "us_generalisation", "supported": false, "citable": null, "why": "'Nearly all convenience stores sell coffee' — the one source offered says nearly 10% of locations did something else entirely. No source establishes the generalisation."}
+
+{"case_id": "case_341ffb150a", "group": "jp_tax_8", "supported": true, "citable": null, "why": "The 8% reduced rate on takeaway is real and the sources state it, but the set contains no 国税庁 page. zeiken.co.jp is a tax publisher, not the authority — crediting it is the stripe.com error."}
+{"case_id": "case_3d0ecd0db3", "group": "jp_tax_8", "supported": true, "citable": null, "why": "Same rate, same evidence shape: true, stated by commentary, no primary source present."}
+{"case_id": "case_95d3c3126f", "group": "jp_tax_8", "supported": true, "citable": null, "why": "True. Backed here by a credit-card site and an accountant's blog — supporting, but nothing to name on air."}
+{"case_id": "case_a9ab14b511", "group": "jp_tax_8", "supported": true, "citable": null, "why": "True. prtimes.jp is a press-release distributor and must never be credited; zeiken.co.jp is not the authority either."}
+{"case_id": "case_505f643e25", "group": "jp_tax_10", "supported": true, "citable": null, "why": "The 10% eat-in rate is real and stated by the sources; no 国税庁 page among them."}
+{"case_id": "case_5996cd7276", "group": "jp_tax_10", "supported": true, "citable": null, "why": "True; backed by trade press and news, none of them the authority."}
+{"case_id": "case_e80d9f55ae", "group": "jp_tax_10", "supported": true, "citable": null, "why": "True; sources include a Yahoo answers page and newspapers. Nothing creditable."}
+{"case_id": "case_b8f41dcea6", "group": "jp_tax_10", "supported": true, "citable": null, "why": "True as a fact. Whether this retrieval established it is the system's call; the fact itself is not in doubt and no primary source is present."}
+
+{"case_id": "case_2d21e1e65f", "group": "jp_store_count", "supported": true, "citable": null, "why": "Japan's convenience-store count is around 55,600-56,000; 'about 56,000' is a fair reading. Published by the franchise trade association, not by government — nothing to credit."}
+{"case_id": "case_b85557765b", "group": "jp_store_count", "supported": true, "citable": null, "why": "Same claim, same answer. Note one source gives 57,594 for a different year — a different year is not a contradiction."}
+{"case_id": "case_bf7c150301", "group": "jp_store_count", "supported": true, "citable": null, "why": "Same claim in another phrasing."}
+{"case_id": "case_30ed86ec35", "group": "jp_store_count", "supported": true, "citable": null, "why": "Same claim; the supporting source found was note.com, which is a distributor and not creditable."}
+{"case_id": "case_5712f6ba16", "group": "jp_store_count", "supported": true, "citable": null, "why": "Same claim."}
+{"case_id": "case_9912059687", "group": "jp_store_count", "supported": true, "citable": null, "why": "Same claim; nikkei gives 55,620, which supports 'about 56,000'. A newspaper is not creditable for a national count."}
+
+{"case_id": "case_56b3b22fa2", "group": "fictional_product", "supported": false, "citable": null, "why": "REGRESSION CASE. There is no AI smart lunchbox. The sources are a bath mat, a rice cooker, a diet app and a baby-food app. The old comparator confirmed this; nothing here is about the subject."}
+{"case_id": "case_616abf1cd4", "group": "fictional_product", "supported": false, "citable": null, "why": "REGRESSION CASE. '1,980 yen' matched a Fire TV Stick sale price and a Cainz lamp. The digits agree and nothing else does."}
+{"case_id": "case_f673dc1161", "group": "fictional_product", "supported": false, "citable": null, "why": "REGRESSION CASE. '80 stores nationwide' matched a sushi chain's store table and Bandai gashapon shops — other companies entirely."}
+{"case_id": "case_16cd8f345e", "group": "fictional_product", "supported": false, "citable": null, "why": "Price of a product that does not exist."}
+{"case_id": "case_80353a5a33", "group": "fictional_product", "supported": false, "citable": null, "why": "Store count for a product that does not exist."}
+{"case_id": "case_d19d0f0108", "group": "fictional_product", "supported": false, "citable": null, "why": "Capability of a product that does not exist."}
+{"case_id": "case_141ec56432", "group": "fictional_product", "supported": false, "citable": null, "why": "'It is a new product' — of a product that does not exist. A crowdfunding site's tagline is not evidence."}
+{"case_id": "case_5067515e36", "group": "fictional_product", "supported": false, "citable": null, "why": "Store count for a product that does not exist."}
+{"case_id": "case_bd6785107e", "group": "fictional_product", "supported": false, "citable": null, "why": "Capability claim; the source offered is a startup-idea generator page."}
+{"case_id": "case_d2506f4b90", "group": "fictional_product", "supported": false, "citable": null, "why": "Store count for a product that does not exist."}
+{"case_id": "case_d865bb4636", "group": "fictional_product", "supported": false, "citable": null, "why": "Store count for a product that does not exist."}
+{"case_id": "case_fd207b0a28", "group": "fictional_product", "supported": false, "citable": null, "why": "Store count for a product that does not exist."}
+
+{"case_id": "case_43e11331fb", "group": "speakers_own", "supported": false, "citable": null, "why": "'The number of shops in this arcade has dropped a lot' — about one unnamed shopping street, unquantified. Nobody publishes it."}
+{"case_id": "case_5809140cbb", "group": "speakers_own", "supported": false, "citable": null, "why": "How long this particular coffee shop has traded is the speaker's own fact. Correct outcome is to attribute it to the speaker."}
+{"case_id": "case_c880c2a6b6", "group": "speakers_own", "supported": false, "citable": null, "why": "Same fact, another phrasing."}

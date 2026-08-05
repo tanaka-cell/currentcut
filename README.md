@@ -119,8 +119,24 @@ services/agent/           Python 3.11 + FastAPI + Google ADK
   app/adk_pipeline.py     ADK LlmAgent that drives the overnight run
   app/pipeline.py         pipeline steps + deterministic fallback
   tests/                  acceptance tests (brief §13)
+eval/                     labelled claims + how often the checker is wrong
 scripts/make_demo_assets.py   fictional demo shoot generator
 demo-assets/generated/    synthetic footage (never real client material)
+```
+
+## Is the checking any good?
+
+`eval/` holds 34 claims taken from real runs, each with the pages actually
+retrieved for it and a hand-written judgement of whether that evidence
+establishes the claim. Measured over three consecutive passes: **0–1 false
+confirmations in 34**, alongside 7 claims wrongly withheld in every pass. The
+failures are named in [eval/measured.md](eval/measured.md) rather than averaged
+away — a checker that confirms nothing would score a perfect zero, so the two
+numbers only mean anything together.
+
+```bash
+python scripts/run_eval.py             # judge again and score; needs GEMINI_API_KEY
+python scripts/run_eval.py --offline   # score recorded verdicts, no key needed
 ```
 
 ## Deploy

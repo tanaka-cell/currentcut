@@ -249,8 +249,13 @@ but not the end of it.)
 ## Honesty notes
 - The ADK layer is **one `LlmAgent` calling six tools in a fixed order**, not
   nine autonomous agents. Documentation and submission text must say so.
-- Support judgments come from Gemini and are not infallible; the acceptance
-  target is a claim-level evaluation set with zero false confirmations, which
-  does not exist yet.
+- Support judgments come from Gemini and are not infallible. The evaluation set
+  now exists (`eval/`) and the measured answer is **0–1 false confirmations in
+  34 labelled claims over three consecutive passes** — not a clean zero. It is
+  the same claim that fails when one does: a capability of a product that does
+  not exist, matched to a research paper about that product category. Seven
+  claims are wrongly withheld in every pass, six of them the same fact hedged
+  with 「約」 that the comparator will not accept as a value match. See
+  [eval/measured.md](eval/measured.md).
 - Confidentiality enforcement is application-layer only. The media still exists
   in storage and Gemini processes all footage under Google's API terms.

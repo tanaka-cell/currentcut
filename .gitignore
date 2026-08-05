@@ -29,3 +29,6 @@ Thumbs.db
 # a compliance screen that greps the repo should not have to tell the
 # difference between a review script and a runtime dependency.
 _review/
+
+# Eval run logs are transient; the scored result is eval/results.md
+eval/_*.log

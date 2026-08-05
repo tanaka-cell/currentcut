@@ -15,6 +15,75 @@ from ..storage import store
 from . import evidence
 
 
+def apply_judgments(claim: Claim, results: list[ResearchResult],
+                    judgments: list, language: str) -> None:
+    """Turn per-source verdicts into the claim's status, in place.
+
+    Split out from the pipeline loop so the same code that decides on air can be
+    scored directly by the evaluation harness (`scripts/run_eval.py`). An
+    evaluation that re-implements the rule measures the re-implementation.
+    """
+    # An outage is not a finding: if the comparator never reached a verdict,
+    # the claim is reported as unchecked rather than as "no support found".
+    claim.verification_error = (
+        judgments[0].reason if judgments and all(map(evidence.did_not_run, judgments)) else "")
+    for r, judgment in zip(results, judgments):
+        r.supports_claim = evidence.supports(judgment)
+        r.entity_match = judgment.entity_match
+        r.attribute_match = judgment.attribute_match
+        r.source_value = judgment.source_value
+        r.dated_qualifier = judgment.dated_qualifier
+        r.value_as_of_year = judgment.value_as_of_year
+        r.contradicts_claim = judgment.contradicts_claim
+        r.claim_names_its_own_date = judgment.claim_names_its_own_date
+        r.judgment_reason = judgment.reason
+        # The model's opinion is recorded, never acted on. Asked whether a
+        # source is primary it said yes for 7andi's own IR page (right), and
+        # also for nikkei.com and bengo4.com (wrong) — and bengo4 was then
+        # printed on air as the source for a national statistic. What may be
+        # credited is decided from the URL, by code, in _source_type.
+        r.model_calls_it_primary = judgment.source_is_primary
+        r.confidence = 0.85 if r.supports_claim else 0.1
+
+    supporting = [r for r in results if r.supports_claim]
+    # A 2014 store count genuinely matches "about 56,000" — and says nothing
+    # about air day. It stays on the record as a source, but it cannot be
+    # what makes the claim confirmed, or the sourced first cut is sourced to
+    # a figure a decade out of date.
+    current = [r for r in supporting if not _is_stale(r)]
+    stale = [r for r in supporting if _is_stale(r)]
+    primary = [r for r in current if r.source_type in ("official", "government")]
+
+    if len(current) >= 2:
+        claim.verification_status = EvidenceStatus.MULTIPLE_SOURCES_CONFIRMED
+    elif primary:
+        claim.verification_status = EvidenceStatus.PRIMARY_SOURCE_CONFIRMED
+    elif current:
+        # A single non-primary source is not enough to call a fact confirmed.
+        claim.verification_status = EvidenceStatus.UNVERIFIED
+    elif _conflicting(claim, results):
+        claim.verification_status = EvidenceStatus.CONFLICTING
+    else:
+        claim.verification_status = EvidenceStatus.UNVERIFIED
+
+    # Volatility flag (director-facing): only raise it when a source states
+    # an actual expiry or scheduled change, not merely because prices move.
+    qualifiers = [r.dated_qualifier for r in results if r.dated_qualifier]
+    if not current and stale:
+        years = sorted({r.value_as_of_year for r in stale if r.value_as_of_year})
+        claim.volatility_note = lang.stale_evidence(language, years[0])
+        claim.recheck_before_lock = True
+        claim.recheck_reason = "stale_evidence"
+    elif qualifiers:
+        claim.volatility_note = qualifiers[0]
+        claim.recheck_before_lock = True
+        claim.recheck_reason = "source_states_a_date"
+    elif claim.volatility == "high" and claim.verification_status in (
+            EvidenceStatus.PRIMARY_SOURCE_CONFIRMED, EvidenceStatus.MULTIPLE_SOURCES_CONFIRMED):
+        claim.recheck_before_lock = True
+        claim.recheck_reason = "volatile_kind"
+
+
 def research_claims(
     project_id: str,
     claims: list[Claim],
@@ -43,66 +112,7 @@ def research_claims(
             continue
 
         judgments = evidence.judge_all(claim, results)
-        # An outage is not a finding: if the comparator never reached a verdict,
-        # the claim is reported as unchecked rather than as "no support found".
-        claim.verification_error = (
-            judgments[0].reason if judgments and all(map(evidence.did_not_run, judgments)) else "")
-        for r, judgment in zip(results, judgments):
-            r.supports_claim = evidence.supports(judgment)
-            r.entity_match = judgment.entity_match
-            r.attribute_match = judgment.attribute_match
-            r.source_value = judgment.source_value
-            r.dated_qualifier = judgment.dated_qualifier
-            r.value_as_of_year = judgment.value_as_of_year
-            r.contradicts_claim = judgment.contradicts_claim
-            r.claim_names_its_own_date = judgment.claim_names_its_own_date
-            r.judgment_reason = judgment.reason
-            # The model's opinion is recorded, never acted on. Asked whether a
-            # source is primary it said yes for 7andi's own IR page (right), and
-            # also for nikkei.com and bengo4.com (wrong) — and bengo4 was then
-            # printed on air as the source for a national statistic. What may be
-            # credited is decided from the URL, by code, in _source_type.
-            r.model_calls_it_primary = judgment.source_is_primary
-            r.confidence = 0.85 if r.supports_claim else 0.1
-
-        supporting = [r for r in results if r.supports_claim]
-        # A 2014 store count genuinely matches "about 56,000" — and says nothing
-        # about air day. It stays on the record as a source, but it cannot be
-        # what makes the claim confirmed, or the sourced first cut is sourced to
-        # a figure a decade out of date.
-        current = [r for r in supporting if not _is_stale(r)]
-        stale = [r for r in supporting if _is_stale(r)]
-        primary = [r for r in current if r.source_type in ("official", "government")]
-
-        if len(current) >= 2:
-            claim.verification_status = EvidenceStatus.MULTIPLE_SOURCES_CONFIRMED
-        elif primary:
-            claim.verification_status = EvidenceStatus.PRIMARY_SOURCE_CONFIRMED
-        elif current:
-            # A single non-primary source is not enough to call a fact confirmed.
-            claim.verification_status = EvidenceStatus.UNVERIFIED
-        elif _conflicting(claim, results):
-            claim.verification_status = EvidenceStatus.CONFLICTING
-        else:
-            claim.verification_status = EvidenceStatus.UNVERIFIED
-
-        # Volatility flag (director-facing): only raise it when a source states
-        # an actual expiry or scheduled change, not merely because prices move.
-        qualifiers = [r.dated_qualifier for r in results if r.dated_qualifier]
-        if not current and stale:
-            years = sorted({r.value_as_of_year for r in stale if r.value_as_of_year})
-            claim.volatility_note = lang.stale_evidence(language, years[0])
-            claim.recheck_before_lock = True
-            claim.recheck_reason = "stale_evidence"
-        elif qualifiers:
-            claim.volatility_note = qualifiers[0]
-            claim.recheck_before_lock = True
-            claim.recheck_reason = "source_states_a_date"
-        elif claim.volatility == "high" and claim.verification_status in (
-                EvidenceStatus.PRIMARY_SOURCE_CONFIRMED, EvidenceStatus.MULTIPLE_SOURCES_CONFIRMED):
-            claim.recheck_before_lock = True
-            claim.recheck_reason = "volatile_kind"
-
+        apply_judgments(claim, results, judgments, language)
         claim.last_checked_at = now_iso()
         store.put(project_id, "claims", claim)
         all_results.extend(results)

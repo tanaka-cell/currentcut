@@ -334,3 +334,44 @@ above, and nothing else moved. The landing-page sample was rebuilt from the
 recorded evidence of that same run rather than shot again — the claims, the
 sources and the timings did not change, only the name the rule picks out of
 them (`scripts/refresh_sample_credits.py`).
+
+## 2026-08-05 — D-029: Count the checker's mistakes, then publish the count
+"Every factual line carries the source it was checked against" is a claim about
+a model's judgement, and it was never measured. `eval/` measures it.
+
+The set is not written by hand. It is every claim any recorded run produced,
+with the pages the search actually returned and the excerpt each verdict came
+from, collected by `scripts/build_eval_set.py`. Labels are added separately:
+does *this* evidence establish *this* claim, and which domain — if any — may be
+printed on air. `citable: null` is a common and correct answer.
+
+Two exclusions, both found by building it:
+
+- **Mock runs invent their evidence** on a fixture domain. Fourteen of the 48
+  collected claims were partly fixture, four of them marked confirmed. Scoring
+  those would have been scoring the fixture, so they are dropped.
+- **The stored `source_type` is whatever the classifier said that day.** The
+  first harness replayed it and reported nine wrong attributions — all of them a
+  retired classifier crediting a tax publisher for the national tax rate. The
+  harness now classifies from the URL with today's code. Nine became zero, and
+  the lesson is the general one: an evaluation that replays a stored decision
+  measures the version that made it.
+
+The harness calls `research.apply_judgments` and `evidence.citable_source`
+directly, which is why `apply_judgments` was lifted out of the pipeline loop. An
+evaluation that reimplements the rule measures the reimplementation.
+
+**Measured, three consecutive passes: 0–1 false confirmations in 34 claims.**
+Not the clean zero we wanted, and the range is published rather than the best
+pass. The failure is always the same one — a capability of a product that does
+not exist, matched to a research paper about that product *category*. The
+comparator holds the line against a rival product and not against a survey of
+the field. Three historical false confirmations (a Fire TV Stick's price, a
+sushi chain's store table, a smart bath mat) are rejected 3/3 and stay in the
+set as the regression they are.
+
+Seven claims are withheld that should not be, identically in every pass — six of
+them 「コンビニエンスストアは全国に約5万6000店」 against pages giving 55,979 and
+55,620. 「約」 is a stated tolerance and the comparator ignores it. That number
+is published next to the headline on purpose: a checker that confirms nothing
+would score zero false confirmations, so the two only mean anything together.
