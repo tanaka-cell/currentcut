@@ -1,0 +1,65 @@
+{
+  "_about": "Invented pages for recording a public demo. Nothing here is a real organisation, publication or URL: every host sits under .example, which RFC 2606 reserves so it can never resolve. Matched to what the English demo shoot actually says, and shaped so a recording still shows every outcome the pipeline can reach — a figure credited to the body that publishes it, a figure that is true but has nobody creditable behind it, and a figure nothing backs at all.",
+  "_source_types": "Decided from the URL by the same rule as any live result: .gov.example is a public authority for the same reason .gov and .go.jp are, and everything else is web. No entry declares its own standing.",
+
+  "pages": [
+    {
+      "match": ["small business", "private work force", "private sector employ", "workforce"],
+      "url": "https://advocacy.smallbusiness.gov.example/facts/2026/employment",
+      "title": "Small Business Facts 2026 — Office of Small Business Advocacy",
+      "published_at": "2026-02-11",
+      "excerpt": "Small Business Facts 2026. Published by the Office of Small Business Advocacy. There are 36.2 million small businesses in this country. Small businesses employ 62.3 million people, or 45.9 percent of private sector workers. Small businesses account for 43.5 percent of gross domestic product. Figures in this edition are drawn from the 2025 business register and are current as of 31 December 2025."
+    },
+    {
+      "match": ["small business", "private work force", "private sector employ", "workforce"],
+      "url": "https://www.dailyledger.example/business/small-firms-half-the-workforce",
+      "title": "Small firms still employ close to half the private workforce | The Daily Ledger",
+      "published_at": "2026-03-02",
+      "excerpt": "Close to half of everyone working outside government works for a small business, according to figures published this month by the Office of Small Business Advocacy. The share, 45.9 percent, has moved little in five years even as the number of firms has grown."
+    },
+
+    {
+      "match": ["minimum wage"],
+      "url": "https://www.labourstandards.gov.example/wages/minimum-wage",
+      "title": "Minimum Wage — Wage and Hour Division",
+      "published_at": "2026-01-20",
+      "excerpt": "Minimum Wage. The federal minimum wage is $7.25 per hour for workers covered by the Fair Labour Standards Act. Many states also set their own minimum wage. Where an employee is subject to both, the employee is entitled to the higher of the two rates. The current rate took effect on 24 July 2009 and has not been amended since."
+    },
+    {
+      "match": ["minimum wage"],
+      "url": "https://www.labourstandards.gov.example/wages/minimum-wage/history",
+      "title": "History of the federal minimum wage — Wage and Hour Division",
+      "published_at": "2026-01-20",
+      "excerpt": "History of changes to the federal minimum wage. 24 July 2007: $5.85 per hour. 24 July 2008: $6.55 per hour. 24 July 2009: $7.25 per hour. No amendment has been enacted since 24 July 2009, making the present rate the longest unchanged in the statute's history."
+    },
+    {
+      "match": ["minimum wage"],
+      "url": "https://wagewatch.example/briefings/stuck-at-725",
+      "title": "Stuck at $7.25: seventeen years without a raise — WageWatch",
+      "published_at": "2026-04-08",
+      "excerpt": "The federal floor has been $7.25 an hour since 2009. Adjusted for prices, its value is the lowest since the 1950s. Thirty-four states and territories now set a higher rate of their own, which is why the federal figure describes fewer workers each year."
+    },
+
+    {
+      "match": ["convenience store", "convenience stores"],
+      "url": "https://www.retailtradecouncil.example/research/store-count-2026",
+      "title": "Convenience Store Count 2026 — Retail Trade Council",
+      "published_at": "2026-01-27",
+      "excerpt": "The convenience store count stands at 151,975 outlets as of 31 December 2025, a decrease of 280 stores on the year. The count is compiled annually by the Retail Trade Council from its member returns and commercial store-location data. It is the only industry-wide count published for this country."
+    },
+    {
+      "match": ["convenience store", "convenience stores"],
+      "url": "https://www.forecourtweekly.example/news/store-count-dips-again",
+      "title": "Store count dips again, fuel sites up | Forecourt Weekly",
+      "published_at": "2026-01-30",
+      "excerpt": "The number of convenience stores fell slightly again this year to 151,975, according to the Retail Trade Council's annual count. The number of sites selling fuel rose by 768 to 122,620, the highest in eight years."
+    },
+    {
+      "match": ["coffee", "sell coffee"],
+      "url": "https://www.forecourtweekly.example/research/hot-drinks-2026",
+      "title": "Hot drinks: who is actually pouring? | Forecourt Weekly",
+      "published_at": "2026-05-14",
+      "excerpt": "Hot drinks remain the highest-margin category on the forecourt, but they are far from universal. Our survey of 1,200 sites found brewed coffee on offer at 61 percent of them, rising to 84 percent among sites attached to a fuel forecourt and falling to under a third among the smallest independents."
+    }
+  ]
+}

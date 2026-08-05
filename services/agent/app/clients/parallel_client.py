@@ -58,11 +58,16 @@ def egress_check(claim: Claim, segment: Segment, query: str) -> tuple[bool, str]
 
 class ParallelClient:
     def __init__(self) -> None:
-        self.mock = config.parallel_is_mock()
+        self.corpus = bool(config.SEARCH_CORPUS)
+        self.mock = config.parallel_is_mock() and not self.corpus
         self.calls_this_run = 0
 
     @property
     def provider(self) -> str:
+        # Named so a recording can never pass for a live run, and so the trace
+        # and the Egress Log say which it was without anyone having to ask.
+        if self.corpus:
+            return "demo-corpus"
         return "mock" if self.mock else "parallel"
 
     def search_for_claim(
@@ -108,7 +113,8 @@ class ParallelClient:
         self.calls_this_run += 1
 
         try:
-            response = (self._mock_search(query) if self.mock
+            response = (self._corpus_search(queries) if self.corpus
+                        else self._mock_search(query) if self.mock
                         else self._real_search(queries, after_date))
         except Exception as exc:
             record("failed", str(exc)[:200], phase="outcome", attempt_id=attempt.id)
@@ -162,6 +168,42 @@ class ParallelClient:
                 published_at=get("published_date") or get("publish_date"),
             ))
         return SearchResponse(pages=pages, provider="parallel")
+
+    _corpus_cache: dict[str, list[dict]] = {}
+
+    @classmethod
+    def _corpus(cls, name: str) -> list[dict]:
+        if name not in cls._corpus_cache:
+            path = config.corpus_dir() / f"{name}.json"
+            try:
+                import json
+                cls._corpus_cache[name] = json.loads(path.read_text(encoding="utf-8"))["pages"]
+            except (OSError, ValueError, KeyError):
+                cls._corpus_cache[name] = []
+        return cls._corpus_cache[name]
+
+    def _corpus_search(self, queries: list[str]) -> SearchResponse:
+        """Serve invented pages instead of calling out, for recording a demo.
+
+        Matching is on the subject words the claim was already reduced to for
+        the gate, so a claim the corpus has nothing to say about comes back
+        empty and is reported unverified — the same as a live search that finds
+        nothing. Padding it out with a filler page would teach a viewer that
+        everything gets confirmed.
+        """
+        haystack = " ".join(queries).lower()
+        pages, seen = [], set()
+        for entry in self._corpus(config.SEARCH_CORPUS):
+            if entry["url"] in seen:
+                continue
+            if any(term.lower() in haystack for term in entry.get("match", [])):
+                seen.add(entry["url"])
+                pages.append(SearchPage(
+                    url=entry["url"], title=entry.get("title", ""),
+                    excerpt=entry.get("excerpt", ""),
+                    published_at=entry.get("published_at", ""),
+                ))
+        return SearchResponse(pages=pages, provider="demo-corpus")
 
     def _mock_search(self, query: str) -> SearchResponse:
         """Deterministic fake results keyed off the query so demos are stable."""
@@ -221,6 +263,12 @@ class ParallelClient:
         ".gov.ie",                            # Ireland
         ".europa.eu",                         # European Union
         ".un.org", ".who.int", ".oecd.org",   # intergovernmental
+        # Invented authorities in the demo corpus. .example is reserved by
+        # RFC 2606 and can never resolve, so this cannot admit a real site — and
+        # it lets a recorded demo exercise the real rule rather than a special
+        # case: the corpus declares no standing, the URL decides it, exactly as
+        # it does for .gov and .go.jp.
+        ".gov.example",
     )
 
     @classmethod

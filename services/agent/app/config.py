@@ -116,6 +116,24 @@ MAX_CONCURRENCY = int(os.getenv("CURRENTCUT_MAX_CONCURRENCY", "6"))
 # context window, and lets the pieces of one long take be read in parallel.
 ANALYSIS_CHUNK_MINUTES = int(os.getenv("CURRENTCUT_ANALYSIS_CHUNK_MINUTES", "10"))
 
+# Recording a public demo means publishing whatever the live search returned —
+# real companies, real headlines, real URLs, none of whom agreed to appear in
+# it. Setting this serves the retrieval step from a bundled corpus of invented
+# pages instead, so the video and the screenshots carry nobody else's name.
+#
+# It is not a quieter kind of mock. The corpus passes the same egress gate, is
+# read by the same comparator and ranked by the same attribution rule, and both
+# the agent trace and the Egress Log record the provider as `demo-corpus`, so no
+# recording can be mistaken for a live run. Unset — the default, and what the
+# hosted demo runs — calls Parallel.
+SEARCH_CORPUS = os.getenv("CURRENTCUT_SEARCH_CORPUS", "")
+
+
+def corpus_dir() -> Path:
+    found = _find_upwards("demo-assets", _SERVICE_ROOT)
+    return (found / "corpus") if found else (REPO_ROOT / "demo-assets" / "corpus")
+
+
 PARALLEL_BASE_URL = os.getenv("PARALLEL_BASE_URL", "https://api.parallel.ai")
 PARALLEL_MAX_SEARCHES_PER_RUN = int(os.getenv("PARALLEL_MAX_SEARCHES_PER_RUN", "20"))
 # Text budget per search. The default returns snippets far too short to contain

@@ -30,8 +30,12 @@ def run_demo(use_adk: bool, shoot: str = "") -> None:
     )
     store.put(project.id, "project", project)
     print(f"Project: {project.id}  ({project.title})")
+    # Say which one it is before the run, not only in the trace afterwards: the
+    # point of the corpus is that a recording cannot pass for a live search.
+    search = (f"DEMO-CORPUS ({config.SEARCH_CORPUS})" if config.SEARCH_CORPUS
+              else "MOCK" if config.parallel_is_mock() else "REAL")
     print(f"Gemini: {'MOCK' if config.gemini_is_mock() else 'REAL'} / "
-          f"Parallel: {'MOCK' if config.parallel_is_mock() else 'REAL'}")
+          f"Parallel: {search}")
 
     paths = [str(v) for v in videos]
     if use_adk:

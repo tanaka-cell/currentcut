@@ -375,3 +375,44 @@ them 「コンビニエンスストアは全国に約5万6000店」 against page
 55,620. 「約」 is a stated tolerance and the comparator ignores it. That number
 is published next to the headline on purpose: a checker that confirms nothing
 would score zero false confirmations, so the two only mean anything together.
+
+## 2026-08-05 — D-030: A public recording shows invented pages, and says so
+The contest organisers put the question to the Parallel team, whose guidance is
+to use fictional sites in the public demo video and submission screenshots
+rather than the real names, page titles and URLs a live search returns. That is
+the right instinct independent of the rules: none of those organisations agreed
+to appear in our film.
+
+The obvious implementation — record with the mock — would have been dishonest in
+a subtler way. The old mock returned one fixture page per keyword and a filler
+result for everything else, so every claim found something. A viewer would have
+learned that this product confirms whatever you say to it.
+
+So `CURRENTCUT_SEARCH_CORPUS` serves a written corpus into the retrieval step
+and changes nothing else. The pages still pass the egress gate, are still read
+by the comparator, are still ranked by the attribution rule. Nothing in the
+corpus declares its own standing: `.gov.example` is a public authority because
+of its suffix, exactly as `.gov` and `.go.jp` are, and everything else comes
+back `web` and cannot be credited. `.example` is reserved by RFC 2606 and can
+never resolve, so admitting that suffix cannot admit a real site. A recording
+therefore demonstrates the rule rather than a stand-in for it, and a test fails
+if an entry ever tries to name its own type.
+
+The corpus is shaped to keep the awkward outcomes. "More than 150,000
+convenience stores" is backed only by a trade body, so it stays airable with no
+attribution — a corpus that invented an authority for every claim would make the
+film a lie about the product. A subject the corpus does not cover returns
+nothing, as a live search that finds nothing does.
+
+`provider` reads `demo-corpus` in the trace, on every Egress Log row, and in the
+CLI banner before the run starts. Not `parallel`, not `mock`. The one thing a
+recording must never do is pass for a live search, and that is one string in
+three places rather than a promise in a README.
+
+Measured on the English shoot: 12 claims, 4 confirmed, three captions carrying a
+source, three off-record moments held, and every retrieved domain under
+`.example`.
+
+The hosted demo still calls Parallel for real, because the track asks us to
+demonstrate that it does. Whether the organisers want the hosted app on the
+corpus too is with them; the switch already exists either way.
