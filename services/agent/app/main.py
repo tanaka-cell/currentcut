@@ -8,7 +8,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import adk_pipeline, config, demo, pipeline, upload
+from . import adk_pipeline, config, demo, lang, pipeline, upload
 from .agents import confidentiality, house_style, telop_form, telop_sheet
 from .models.schemas import (
     AgentRun, Asset, Claim, EgressLog, Project, RESTRICTED_LABELS, ResearchResult,
@@ -186,11 +186,12 @@ def download_manuscript(project_id: str):
     entries = store.list(project_id, "telops", TelopEntry)
     if not entries:
         raise HTTPException(404, "no telops drafted yet")
+    language = _shoot_language(project_id)
     path = telop_sheet.write_manuscript(
         entries, config.OUTPUT_DIR / project_id / "telop_manuscript.xlsx",
-        title=project.title, air_date=project.air_date)
+        title=project.title, air_date=project.air_date, language=language)
     return FileResponse(
-        path, filename="テロップ原稿.xlsx",
+        path, filename=lang.sheet(lang.SHEET_FILENAME, language),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 
@@ -200,7 +201,8 @@ def get_telops_csv(project_id: str):
     entries = store.list(project_id, "telops", TelopEntry)
     if not entries:
         raise HTTPException(404, "no telops drafted yet")
-    path = telop_sheet.write_csv(entries, config.OUTPUT_DIR / project_id / "telops.csv")
+    path = telop_sheet.write_csv(entries, config.OUTPUT_DIR / project_id / "telops.csv",
+                                 language=_shoot_language(project_id))
     return FileResponse(path, media_type="text/csv", filename="telop_manuscript.csv")
 
 
@@ -452,3 +454,11 @@ def _require_project(project_id: str) -> Project:
     if project is None:
         raise HTTPException(404, "project not found")
     return project
+
+
+def _shoot_language(project_id: str) -> str:
+    """The language the footage was spoken in — what the deliverables are
+    written in. Decided from the segments, the same way the script and the
+    captions decide it, so one project cannot produce a Japanese sheet for an
+    English cut."""
+    return lang.of_segments(store.list(project_id, "segments", Segment))

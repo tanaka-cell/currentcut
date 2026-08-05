@@ -19,6 +19,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field
 
+from .. import lang
 from ..clients.gemini_client import gemini
 from ..models.schemas import TelopEntry
 
@@ -191,13 +192,11 @@ def _mock_mapping(grid: str, merges: str, sheetnames: list[str]) -> SheetMapping
                         notes="structure detected without an LLM")
 
 
-_TYPE_JA = {
-    "name": "名前スーパー",
-    "data": "データテロップ",
-    "comment": "コメントフォロー",
-    "place": "場所スーパー",
-    "title": "タイトル",
-}
+# Pouring into a programme's own uploaded form, the wording follows the form,
+# not the shoot: a Japanese broadcaster's template expects 名前スーパー in the
+# type column whatever language the interview was in. One definition, shared
+# with the sheet CurrentCut writes itself.
+_TYPE_JA = lang.SHEET_TELOP_TYPE[lang.JA]
 
 
 def _tc(seconds: float, fps: int = 30, frames: bool = True) -> str:
@@ -276,29 +275,21 @@ def _first_tc_ref(mapping: SheetMapping) -> tuple[str, int]:
     return (cell.column, mapping.first_data_row + cell.row_offset)
 
 
-_EVIDENCE_JA = {
-    "FOOTAGE_CONFIRMED": "素材どおり",
-    "PRIMARY_SOURCE_CONFIRMED": "一次情報で確認",
-    "MULTIPLE_SOURCES_CONFIRMED": "複数ソースで確認",
-    "EDITORIAL_LANGUAGE": "演出表現",
-    "UNVERIFIED": "裏付けなし",
-    "CONFLICTING": "⚠公開情報と相違",
-}
-
-_MANUSCRIPT_COLUMNS = [
-    ("No", 5), ("IN点", 12), ("OUT点", 12), ("種別", 15),
-    ("表示文字", 34), ("出典表記", 24), ("裏付け", 16), ("備考・確認事項", 40),
-]
-
-
 def write_manuscript(entries: list[TelopEntry], out_path: str | Path,
-                     title: str = "", air_date: str = "") -> Path:
-    """The director's own テロップ原稿 — the file that gets emailed to the edit house.
+                     title: str = "", air_date: str = "",
+                     language: str = lang.JA) -> Path:
+    """The director's own caption order sheet — the file emailed to the edit house.
 
     This is the everyday deliverable. The programme's template is filled in at
     the edit house, so what the director sends is a plain, readable list: what
     the telop says, when it comes up, and — the part CurrentCut adds — whether
-    the figure in it has been checked and against what.
+    the figure in it has been checked, and against what.
+
+    Written in the language of the shoot. This is the one deliverable a person
+    has to act on line by line, and a column headed 裏付け is unreadable to a
+    crew that does not work in Japanese, exactly as `Checked against` would be
+    to one that does. The vocabulary lives in app/lang.py with everything else
+    that changes by language.
     """
     from openpyxl import Workbook
     from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
@@ -307,15 +298,22 @@ def write_manuscript(entries: list[TelopEntry], out_path: str | Path,
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
+    sheet_title = lang.sheet(lang.SHEET_TITLE, language)
+    columns = lang.sheet(lang.SHEET_COLUMNS, language)
+    types = lang.sheet(lang.SHEET_TELOP_TYPE, language)
+    evidence = lang.sheet(lang.SHEET_EVIDENCE, language)
+
     wb = Workbook()
     ws = wb.active
-    ws.title = "テロップ原稿"
+    ws.title = sheet_title
 
-    ws["A1"] = "テロップ原稿"
+    ws["A1"] = sheet_title
     ws["A1"].font = Font(size=14, bold=True)
-    ws["A2"] = f"番組・企画: {title}" if title else "番組・企画:"
-    ws["C2"] = f"OA: {air_date}" if air_date else "OA:"
-    ws["E2"] = "※「裏付け」欄が⚠または裏付けなしの行は、数字を出す前に確認してください"
+    programme = lang.sheet(lang.SHEET_PROGRAMME, language)
+    air = lang.sheet(lang.SHEET_AIR_DATE, language)
+    ws["A2"] = f"{programme}: {title}" if title else f"{programme}:"
+    ws["C2"] = f"{air}: {air_date}" if air_date else f"{air}:"
+    ws["E2"] = lang.sheet(lang.SHEET_WARNING, language)
     ws["E2"].font = Font(size=9, color="8A5A12")
 
     header_row = 4
@@ -323,7 +321,7 @@ def write_manuscript(entries: list[TelopEntry], out_path: str | Path,
     border = Border(left=thin, right=thin, top=thin, bottom=thin)
     head_fill = PatternFill("solid", fgColor="EFEBE2")
 
-    for index, (label, width) in enumerate(_MANUSCRIPT_COLUMNS, start=1):
+    for index, (label, width) in enumerate(columns, start=1):
         cell = ws.cell(row=header_row, column=index, value=label)
         cell.font = Font(bold=True, size=10)
         cell.fill = head_fill
@@ -337,10 +335,10 @@ def write_manuscript(entries: list[TelopEntry], out_path: str | Path,
             entry.order,
             _tc(entry.in_seconds),
             _tc(entry.out_seconds),
-            _TYPE_JA.get(entry.telop_type, entry.telop_type),
+            types.get(entry.telop_type, entry.telop_type),
             "\n".join(entry.text_lines),
             entry.source_note,
-            _EVIDENCE_JA.get(entry.evidence_status.value, entry.evidence_status.value),
+            evidence.get(entry.evidence_status.value, entry.evidence_status.value),
             entry.caution,
         ]
         for index, value in enumerate(values, start=1):
@@ -362,19 +360,24 @@ def write_manuscript(entries: list[TelopEntry], out_path: str | Path,
     return out_path
 
 
-def write_csv(entries: list[TelopEntry], out_path: str | Path) -> Path:
+def write_csv(entries: list[TelopEntry], out_path: str | Path,
+              language: str = lang.JA) -> Path:
     """Plain text alternative for anyone who would rather not open a workbook."""
     import csv
+
+    columns = lang.sheet(lang.SHEET_COLUMNS, language)
+    types = lang.sheet(lang.SHEET_TELOP_TYPE, language)
+    evidence = lang.sheet(lang.SHEET_EVIDENCE, language)
 
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with open(out_path, "w", encoding="utf-8-sig", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow([c[0] for c in _MANUSCRIPT_COLUMNS])
+        writer.writerow([c[0] for c in columns])
         for e in entries:
             writer.writerow([e.order, _tc(e.in_seconds), _tc(e.out_seconds),
-                             _TYPE_JA.get(e.telop_type, e.telop_type),
+                             types.get(e.telop_type, e.telop_type),
                              "\n".join(e.text_lines), e.source_note,
-                             _EVIDENCE_JA.get(e.evidence_status.value, e.evidence_status.value),
+                             evidence.get(e.evidence_status.value, e.evidence_status.value),
                              e.caution])
     return out_path

@@ -447,3 +447,34 @@ unambiguous, and a viewer is not a machine.
 
 Measured on the English shoot, demo corpus: 2 of 12 claims carried a prefix,
 both now read as spoken, and the sourced captions are unchanged otherwise.
+
+## 2026-08-05 — D-031: The order sheet is written in the language of the shoot
+The caption order sheet is the one deliverable a person works through line by
+line, and it shipped only in Japanese. The column that carries the whole point
+of the product was headed 裏付け, and the demo video points a judge at that
+column while the narration says "was this checked, and against what". An
+English-speaking judge would have been looking at a word they cannot read, in
+the single shot carrying the "real understanding of a real problem" criterion.
+
+The vocabulary moved into `app/lang.py` with everything else that changes by
+language, and the endpoints decide from the segments — the same way the script
+and the captions already decide it — so one project cannot produce a Japanese
+sheet for an English cut.
+
+The Japanese wording is unchanged and stays exact. It is the trade's own
+vocabulary, not a translation back from the English: a Japanese edit house
+wants 名前スーパー and 出典表記, and inventing tidier equivalents would make the
+sheet worse for the people it was designed for.
+
+Two things deliberately did not change:
+
+- **Pouring into a broadcaster's uploaded form follows the form, not the
+  shoot.** A Japanese template expects 名前スーパー in its type column whatever
+  language the interview was in. That path keeps the Japanese table, now
+  sharing one definition with the sheet CurrentCut writes itself.
+- **The per-row notes are not translated.** Each was written when the telop was
+  drafted, in the language of that shoot, and it is that shoot's content.
+  Asking for an English sheet from a Japanese shoot gives English headings over
+  Japanese notes, which is the honest outcome: the parameter says which shoot
+  this is, not which language to translate into. A test says so in as many
+  words, because the obvious reading of a failing assertion here is "leak".

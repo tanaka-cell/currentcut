@@ -194,3 +194,60 @@ def name_super_check(language: str) -> str:
     if language == JA:
         return "屋号・肩書の表記を本人に確認"
     return "Confirm the spelling of the name and title with the speaker."
+
+
+# --- the caption order sheet ------------------------------------------------
+# The sheet is read by whoever is going to typeset the captions, so it is
+# written in the language of the shoot: a Japanese edit house wants テロップ原稿,
+# and an English-language crew cannot act on a column headed 裏付け. The
+# Japanese wording is the original and stays exact — these are the words the
+# trade actually uses, not translations back from the English.
+
+SHEET_TITLE = {JA: "テロップ原稿", EN: "Caption Order Sheet"}
+
+SHEET_PROGRAMME = {JA: "番組・企画", EN: "Programme"}
+SHEET_AIR_DATE = {JA: "OA", EN: "Air date"}
+
+SHEET_WARNING = {
+    JA: "※「裏付け」欄が⚠または裏付けなしの行は、数字を出す前に確認してください",
+    EN: "Rows marked ⚠ or 'not backed' in Checked against: confirm the figure before it goes to air.",
+}
+
+# (label, column width). Widths differ because English words run longer than
+# the Japanese ones they replace.
+SHEET_COLUMNS = {
+    JA: [("No", 5), ("IN点", 12), ("OUT点", 12), ("種別", 15),
+         ("表示文字", 34), ("出典表記", 24), ("裏付け", 16), ("備考・確認事項", 40)],
+    EN: [("No", 5), ("In", 12), ("Out", 12), ("Type", 18),
+         ("On screen", 34), ("Source line", 26), ("Checked against", 22),
+         ("Notes / to confirm", 42)],
+}
+
+SHEET_TELOP_TYPE = {
+    JA: {"name": "名前スーパー", "data": "データテロップ",
+         "comment": "コメントフォロー", "place": "場所スーパー", "title": "タイトル"},
+    EN: {"name": "name super", "data": "data caption",
+         "comment": "quote follow", "place": "location super", "title": "title"},
+}
+
+SHEET_EVIDENCE = {
+    JA: {"FOOTAGE_CONFIRMED": "素材どおり",
+         "PRIMARY_SOURCE_CONFIRMED": "一次情報で確認",
+         "MULTIPLE_SOURCES_CONFIRMED": "複数ソースで確認",
+         "EDITORIAL_LANGUAGE": "演出表現",
+         "UNVERIFIED": "裏付けなし",
+         "CONFLICTING": "⚠公開情報と相違"},
+    EN: {"FOOTAGE_CONFIRMED": "as recorded",
+         "PRIMARY_SOURCE_CONFIRMED": "primary source",
+         "MULTIPLE_SOURCES_CONFIRMED": "multiple sources",
+         "EDITORIAL_LANGUAGE": "editorial wording",
+         "UNVERIFIED": "not backed",
+         "CONFLICTING": "⚠ conflicts with published figures"},
+}
+
+SHEET_FILENAME = {JA: "テロップ原稿.xlsx", EN: "caption-order-sheet.xlsx"}
+
+
+def sheet(table: dict, language: str):
+    """One lookup for the sheet vocabulary, falling back to English."""
+    return table.get(language, table[EN])

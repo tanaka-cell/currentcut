@@ -209,3 +209,100 @@ def test_csv_fallback_when_no_template(overnight_run, tmp_path):
     body = Path(path).read_text(encoding="utf-8-sig")
     assert "表示文字" in body and "出典表記" in body
     assert body.count("\n") >= len(entries)
+
+
+# ---- the sheet is written in the language of the shoot ----------------------
+#
+# The order sheet is the one deliverable a person acts on line by line. A crew
+# that does not read Japanese cannot act on a column headed 裏付け, and the
+# column that says whether a figure was checked is the whole point of it.
+
+def test_the_sheet_follows_the_shoot_into_english(overnight_run, tmp_path):
+    from openpyxl import load_workbook
+
+    from app import lang
+    from app.agents import telop_sheet
+    from app.models.schemas import TelopEntry
+    from app.storage import store
+
+    project_id, _ = overnight_run
+    entries = store.list(project_id, "telops", TelopEntry)
+    out = telop_sheet.write_manuscript(entries, tmp_path / "sheet_en.xlsx",
+                                       language=lang.EN)
+    ws = load_workbook(out)["Caption Order Sheet"]
+
+    headers = [c.value for c in ws[4]]
+    assert headers[6] == "Checked against", "the column the product exists for"
+    assert headers == ["No", "In", "Out", "Type", "On screen", "Source line",
+                       "Checked against", "Notes / to confirm"]
+    assert not any("裏付け" in str(h) for h in headers)
+
+
+def test_evidence_positions_read_in_english_too(overnight_run, tmp_path):
+    """A status nobody can read is a status nobody acts on."""
+    from openpyxl import load_workbook
+
+    from app import lang
+    from app.agents import telop_sheet
+    from app.models.schemas import EvidenceStatus, TelopEntry
+    from app.storage import store
+
+    project_id, _ = overnight_run
+    entries = store.list(project_id, "telops", TelopEntry)
+    out = telop_sheet.write_manuscript(entries, tmp_path / "sheet_en2.xlsx",
+                                       language=lang.EN)
+    ws = load_workbook(out)["Caption Order Sheet"]
+
+    for offset, entry in enumerate(entries):
+        label = str(ws.cell(row=5 + offset, column=7).value or "")
+        assert label and label.isascii() or "⚠" in label, f"row {offset} reads {label!r}"
+        if entry.evidence_status == EvidenceStatus.UNVERIFIED:
+            assert "not backed" in label
+
+
+def test_japanese_remains_the_original_wording(overnight_run, tmp_path):
+    """The Japanese is the trade's own vocabulary, not a translation back."""
+    from openpyxl import load_workbook
+
+    from app import lang
+    from app.agents import telop_sheet
+    from app.models.schemas import TelopEntry
+    from app.storage import store
+
+    project_id, _ = overnight_run
+    entries = store.list(project_id, "telops", TelopEntry)
+    out = telop_sheet.write_manuscript(entries, tmp_path / "sheet_ja.xlsx",
+                                       language=lang.JA)
+    ws = load_workbook(out)["テロップ原稿"]
+    assert [c.value for c in ws[4]] == ["No", "IN点", "OUT点", "種別", "表示文字",
+                                        "出典表記", "裏付け", "備考・確認事項"]
+
+
+def test_the_csv_follows_the_same_language(overnight_run, tmp_path):
+    from app import lang
+    from app.agents import telop_sheet
+    from app.models.schemas import TelopEntry
+    from app.storage import store
+
+    project_id, _ = overnight_run
+    entries = store.list(project_id, "telops", TelopEntry)
+    body = Path(telop_sheet.write_csv(entries, tmp_path / "en.csv",
+                                      language=lang.EN)).read_text(encoding="utf-8-sig")
+    header = body.splitlines()[0]
+    assert "Checked against" in header and "On screen" in header
+    assert "裏付け" not in header
+    # Only the sheet's own vocabulary is chosen here. Each row's note was
+    # written when the telop was drafted, in the language of that shoot, and it
+    # is that shoot's content — this fixture is a Japanese one, so Japanese
+    # notes under English headings is the correct outcome rather than a leak.
+    # The parameter says which shoot this is, not which language to translate to.
+
+
+def test_a_programme_template_keeps_its_own_vocabulary():
+    """Pouring into a broadcaster's uploaded form follows the form, not the
+    shoot: a Japanese template expects 名前スーパー whatever was spoken."""
+    from app import lang
+    from app.agents import telop_sheet
+
+    assert telop_sheet._TYPE_JA is lang.SHEET_TELOP_TYPE[lang.JA]
+    assert telop_sheet._TYPE_JA["name"] == "名前スーパー"
