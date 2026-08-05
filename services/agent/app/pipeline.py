@@ -235,7 +235,7 @@ def morning_report(project_id: str, cut: dict | None = None) -> dict:
         "claims_checked": len(checked),
         "confidential_moments_protected": len(protected),
         "claims_to_recheck_before_lock": [
-            {"claim_id": c.id, "claim_text": c.claim_text, "note": c.volatility_note,
+            {"claim_id": c.id, "claim_text": c.on_screen, "note": c.volatility_note,
              "why": _RECHECK_WORDING[c.recheck_reason]}
             for c in volatile
         ],

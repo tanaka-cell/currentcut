@@ -416,3 +416,34 @@ source, three off-record moments held, and every retrieved domain under
 The hosted demo still calls Parallel for real, because the track asks us to
 demonstrate that it does. Whether the organisers want the hosted app on the
 corpus too is with them; the switch already exists either way.
+
+## 2026-08-05 — D-031: What gets verified is not what gets read
+A claim is prefixed with its subject when the sentence alone does not name one,
+because a claim with no subject verifies against any page carrying the same
+number. That guard is right and stays. What was wrong is that the prefixed
+string then went on screen:
+
+    small businesses' employment share of the private workforce in this
+    country: Small businesses employ almost half of the private workforce in
+    this country.
+
+The guard is meant to skip claims that already name their subject, and it
+decides by looking for the subject inside the sentence. That works when the
+model returns a bare entity and fails when it returns a description of the
+topic — "small businesses' employment share of the private workforce" is not a
+substring of a sentence that says "Small businesses employ almost half". The
+same test had already been widened once, for capitalisation. Widening it again
+would only postpone the next paraphrase.
+
+So the two strings are kept apart instead of being reconciled. `claim_text` is
+what the comparator and the search query see; `display_text` is the sentence as
+extracted, read through `Claim.on_screen`, which falls back to `claim_text` for
+anything recorded before the split. Captions, telops, the caption sheet and the
+progress log all read `on_screen`; evidence, attribution and de-duplication all
+keep reading `claim_text`.
+
+This is the older lesson in a new place. The prefix exists to make a machine
+unambiguous, and a viewer is not a machine.
+
+Measured on the English shoot, demo corpus: 2 of 12 claims carried a prefix,
+both now read as spoken, and the sourced captions are unchanged otherwise.

@@ -302,3 +302,40 @@ def test_a_subject_already_in_the_claim_is_not_prefixed_again():
     assert _with_subject(said, "small businesses in this country") == said
     assert _with_subject("持ち帰りの消費税率は8%です", "持ち帰りの消費税率") == "持ち帰りの消費税率は8%です"
     assert _with_subject("The rate is 8%", "the reduced tax rate") == "the reduced tax rate: The rate is 8%"
+
+
+# ---- what gets verified vs what gets read ----------------------------------
+
+def test_the_subject_prefix_never_reaches_the_screen():
+    """A caption went out reading "small businesses' employment share of the
+    private workforce in this country: Small businesses employ almost half of
+    the private workforce in this country." The prefix is there so the claim
+    verifies against the right pages, which is not a reason to read it aloud."""
+    from app.models.schemas import Claim
+
+    claim = Claim(
+        segment_id="seg_1",
+        claim_text="small businesses' employment share of the private workforce"
+                   " in this country: Small businesses employ almost half of the"
+                   " private workforce in this country.",
+        display_text="Small businesses employ almost half of the private"
+                     " workforce in this country.",
+    )
+    assert claim.on_screen.startswith("Small businesses employ")
+    assert ":" not in claim.on_screen
+
+
+def test_a_claim_stored_before_the_split_still_reads():
+    from app.models.schemas import Claim
+
+    claim = Claim(segment_id="seg_1", claim_text="The rate is 8%.")
+    assert claim.on_screen == "The rate is 8%."
+
+
+def test_the_prefix_is_still_what_gets_verified():
+    """Dropping it from the search is the bug it was added to fix: a claim with
+    no subject verifies against any page carrying the same number."""
+    from app.agents.claims import _with_subject
+
+    verified = _with_subject("It employs almost half of them.", "small businesses")
+    assert verified.startswith("small businesses:")

@@ -142,8 +142,10 @@ def extract_claims(project_id: str, segments: list[Segment]) -> list[Claim]:
                 _LlmClaims,
             )
             return [
-                (_with_subject(c.claim_text, c.claim_subject), c.claim_type,
-                 c.safe_search_query, _verifiability(c.verifiability),
+                # (verified, shown, ...) — the subject prefix belongs in a query,
+                # not in a caption, so the unprefixed sentence travels alongside.
+                (_with_subject(c.claim_text, c.claim_subject), c.claim_text,
+                 c.claim_type, c.safe_search_query, _verifiability(c.verifiability),
                  [q for q in (c.publisher_search_query,) if q.strip()])
                 for c in llm.claims
             ]
@@ -160,7 +162,7 @@ def extract_claims(project_id: str, segments: list[Segment]) -> list[Claim]:
         # Restricted segments are still analyzed internally (mining them for
         # claims is fine) but their claims may never reach external search.
         externally_searchable = seg.allow_external_search
-        for claim_text, claim_type, safe_query, verifiability, extra in extracted:
+        for claim_text, shown, claim_type, safe_query, verifiability, extra in extracted:
             if _seen_before(claim_text, claim_type, claims):
                 continue  # same fact restated; verify it once
             needs_human = claim_type in _HUMAN_APPROVAL_TYPES
@@ -172,6 +174,7 @@ def extract_claims(project_id: str, segments: list[Segment]) -> list[Claim]:
             claims.append(Claim(
                 segment_id=seg.id,
                 claim_text=claim_text,
+                display_text=shown,
                 claim_type=claim_type,
                 volatility=_VOLATILITY.get(claim_type, "medium"),
                 verifiability=verifiability,
@@ -240,10 +243,12 @@ def _verifiability(raw: str) -> Verifiability:
         return Verifiability.UNIDENTIFIED_SUBJECT
 
 
-def _mock_extract(transcript: str) -> list[tuple[str, str, str, Verifiability, list[str]]]:
+def _mock_extract(transcript: str) -> list[tuple[str, str, str, str, Verifiability, list[str]]]:
     found = []
     for pattern, claim_type, query in _MOCK_RULES:
         m = re.search(pattern, transcript)
         if m:
-            found.append((m.group(0), claim_type, query, Verifiability.PUBLIC_RECORD, []))
+            # Nothing is prefixed here, so what is verified is what is shown.
+            found.append((m.group(0), m.group(0), claim_type, query,
+                          Verifiability.PUBLIC_RECORD, []))
     return found

@@ -131,7 +131,16 @@ class Verifiability(str, Enum):
 class Claim(BaseModel):
     id: str = Field(default_factory=lambda: new_id("clm"))
     segment_id: str
+    # What gets verified. Deliberately self-contained, and prefixed with its
+    # subject when the sentence alone does not name one — a claim with no
+    # subject verifies against any page carrying the same number.
     claim_text: str
+    # What a viewer reads. The prefix earns its place in a search query, not on
+    # screen: a caption went out reading "small businesses' employment share of
+    # the private workforce in this country: Small businesses employ almost half
+    # of the private workforce in this country." Empty on claims recorded before
+    # the two were separated — read it through `on_screen`, never directly.
+    display_text: str = ""
     claim_type: str = "other"  # store_count | price | release_date | stat | superlative | popularity | other
     volatility: str = "medium"  # high | medium | low
     verifiability: Verifiability = Verifiability.PUBLIC_RECORD
@@ -156,6 +165,15 @@ class Claim(BaseModel):
     # tax rate *introduced* in 2019. Only the first two carry a note worth
     # putting in front of a director.
     recheck_reason: str = ""  # stale_evidence | source_states_a_date | volatile_kind
+
+    @property
+    def on_screen(self) -> str:
+        """The wording to put in front of a person — caption, telop, sheet.
+
+        Falls back to the verification text, so a claim stored before the two
+        were separated still reads the way it always did.
+        """
+        return self.display_text or self.claim_text
 
 
 class ResearchResult(BaseModel):

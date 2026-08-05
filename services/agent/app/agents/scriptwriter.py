@@ -248,10 +248,10 @@ def _caption_for(seg: Segment, claim: Claim | None,
                                           claim.claim_text)
         if citable:
             return lang.cited(lang.detect(claim.claim_text),
-                              claim.claim_text, citable.source_domain)
+                              claim.on_screen, citable.source_domain)
         # Checked, but with nobody worth naming. The figure still belongs on
         # screen; the attribution does not.
-        return claim.claim_text
+        return claim.on_screen
     # No speaker fallback: Gemini's speaker field is a description of what it
     # saw ("Man in apron"), and printing a description where a name super
     # belongs reads as a mistake, not a caption. The spoken line itself is

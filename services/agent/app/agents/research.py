@@ -99,13 +99,13 @@ def research_claims(
         if segment is None:
             continue
         progress.emit(project_id, "parallel_research", "running",
-                       f"Checking: {claim.claim_text}")
+                       f"Checking: {claim.on_screen}")
         try:
             results = parallel.search_for_claim(project_id, claim, segment, after_date=after_date)
         except EgressBlocked as exc:
             # Logged by the gate; the claim simply stays unverified.
             progress.emit(project_id, "parallel_research", "blocked",
-                           f"Held back: {claim.claim_text} — {exc}")
+                           f"Held back: {claim.on_screen} — {exc}")
             claim.verification_status = EvidenceStatus.UNVERIFIED
             claim.last_checked_at = now_iso()
             store.put(project_id, "claims", claim)
@@ -117,7 +117,7 @@ def research_claims(
         store.put(project_id, "claims", claim)
         all_results.extend(results)
         progress.emit(project_id, "parallel_research", "done",
-                       f"{claim.claim_text} → {claim.verification_status.value.replace('_', ' ').lower()}")
+                       f"{claim.on_screen} → {claim.verification_status.value.replace('_', ' ').lower()}")
 
     store.put_many(project_id, "research_results", all_results)
     return all_results
