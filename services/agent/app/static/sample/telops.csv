@@ -1,46 +1,49 @@
-﻿No,IN点,OUT点,種別,表示文字,出典表記,裏付け,備考・確認事項
-1,00:00:00:00,00:00:04:00,場所スーパー,"Old brick buildings, street
-Coffee shop, sunset glow",,素材どおり,
-2,00:00:14:22,00:00:18:04,名前スーパー,Male Barista,,素材どおり,Confirm the spelling of the name and title with the speaker.
-3,00:00:14:22,00:00:18:04,データテロップ,"Opened by my father,
-1978",,裏付けなし,Their own figure — nobody publishes it. Attribute it to the speaker.
-4,00:00:14:22,00:00:18:04,コメントフォロー,Father opened this in 1978,,素材どおり,
-5,00:00:18:04,00:00:21:14,データテロップ,"male barista: 22 years
-behind this counter",,裏付けなし,Their own figure — nobody publishes it. Attribute it to the speaker.
-6,00:00:18:04,00:00:21:14,コメントフォロー,Behind this counter for 22 years,,素材どおり,
-7,00:00:21:14,00:00:26:14,名前スーパー,Man,,素材どおり,Confirm the spelling of the name and title with the speaker.
-8,00:00:21:14,00:00:28:14,データテロップ,"Small businesses employ almost
-half the private workforce",Source: advocacy.sba.gov,複数ソースで確認,Frequently Asked Questions About Small Business 2026
-9,00:00:21:14,00:00:28:14,コメントフォロー,"Small businesses employ
-almost half of private workforce",,素材どおり,
-10,00:00:28:14,00:00:30:14,名前スーパー,Man in apron,,素材どおり,Confirm the spelling of the name and title with the speaker.
-11,00:00:28:14,00:00:30:14,データテロップ,federal minimum wage $7.25/hr,Source: www.dol.gov,複数ソースで確認,
-12,00:00:28:14,00:00:30:14,コメントフォロー,Federal minimum wage paid here,,素材どおり,
-13,00:00:30:14,00:00:32:20,コメントフォロー,$7.25 an hour,,素材どおり,
-14,00:00:32:20,00:00:35:02,データテロップ,"Federal minimum wage
-$7.25/hr, unchanged since 2009",Source: www.dol.gov,複数ソースで確認,"December 31, 2013"
-15,00:00:32:20,00:00:35:02,コメントフォロー,It hasn't changed since 2009,,素材どおり,
-16,00:00:35:02,00:00:39:02,データテロップ,"Over 150,000 convenience
-stores in this country",,複数ソースで確認,"Checked, but no primary source to credit (backed by www.convenience.org, csnews.com). Find the official release before adding a source line.／as of Dec. 31, 2025"
-17,00:00:35:02,00:00:39:02,コメントフォロー,"Over 150,000 convenience
-stores in this country",,素材どおり,
-18,00:00:39:02,00:00:41:22,データテロップ,"Nearly all convenience stores
-sell coffee nationwide",,裏付けなし,"Nothing backs this. Attribute it to the speaker, or drop the number."
-19,00:00:39:02,00:00:41:22,コメントフォロー,Nearly all sell coffee,,素材どおり,
-20,00:00:41:22,00:00:44:22,データテロップ,200 cups of coffee daily,,裏付けなし,Their own figure — nobody publishes it. Attribute it to the speaker.
-21,00:00:41:22,00:00:44:22,コメントフォロー,About 200 cups a day,,素材どおり,
-22,00:00:44:22,00:00:47:22,データテロップ,"10 years ago, daily coffee
-sales were ~300 cups",,裏付けなし,Their own figure — nobody publishes it. Attribute it to the speaker.
-23,00:00:44:22,00:00:47:22,コメントフォロー,"10 years ago, it was closer to
-300",,素材どおり,
-24,00:00:47:22,00:00:52:08,名前スーパー,Elderly woman,,素材どおり,Confirm the spelling of the name and title with the speaker.
-25,00:00:47:22,00:00:52:08,コメントフォロー,"You can taste the difference
-when made by hand",,素材どおり,
-26,00:00:52:08,00:00:55:15,データテロップ,"Many shops along this street
-have closed",,裏付けなし,No named subject — cannot be checked. Attribute it to the speaker.
-27,00:00:52:08,00:00:55:15,コメントフォロー,"Many shops along this street
-have closed",,素材どおり,
-28,00:00:55:15,00:00:55:24,名前スーパー,Off-screen interviewer,,素材どおり,Confirm the spelling of the name and title with the speaker.
-29,00:00:55:15,00:00:55:24,コメントフォロー,yeah,,素材どおり,
-30,00:00:55:24,00:00:56:03,コメントフォロー,Yeah,,素材どおり,
-31,00:00:56:03,00:00:56:15,コメントフォロー,Mhm,,素材どおり,
+﻿No,In,Out,Type,On screen,Source line,Checked against,Notes / to confirm
+1,00:00:00:00,00:00:04:00,location super,"Sunset over quiet street,
+Old brick bldgs & storefront",,as recorded,
+2,00:00:15:04,00:00:17:01,name super,Cafe Owner,,as recorded,Confirm the spelling of the name and title with the speaker.
+3,00:00:15:04,00:00:17:01,data caption,"Federal minimum wage,
+$7.25 an hour",Source: labour.gov.example,multiple sources,
+4,00:00:15:04,00:00:17:01,data caption,"Business pays fed min wage
+$7.25 an hour",,not backed,Their own figure — nobody publishes it. Attribute it to the speaker.
+5,00:00:15:04,00:00:17:01,quote follow,We pay the federal minimum wage,,as recorded,
+6,00:00:17:01,00:00:17:07,name super,Interviewer,,as recorded,Confirm the spelling of the name and title with the speaker.
+7,00:00:17:01,00:00:17:07,quote follow,Mhm,,as recorded,
+8,00:00:17:07,00:00:19:07,data caption,"Federal minimum wage
+Unchanged since 2009",Source: labour.gov.example,multiple sources,
+9,00:00:17:07,00:00:19:07,quote follow,Hasn't changed since 2009,,as recorded,
+10,00:00:19:07,00:00:19:16,quote follow,mhm,,as recorded,
+11,00:00:19:16,00:00:23:27,name super,Man in apron,,as recorded,Confirm the spelling of the name and title with the speaker.
+12,00:00:19:16,00:00:23:27,data caption,"Over 150,000 convenience stores
+in the country",,multiple sources,"Checked, but no primary source to credit (backed by retailcouncil.example, forecourt.example). Find the official release before adding a source line.／as of 31 December 2025"
+13,00:00:19:16,00:00:23:27,quote follow,"Over 150,000 convenience
+stores in this country",,as recorded,
+14,00:00:23:27,00:00:25:25,data caption,"Nearly all convenience stores
+sell coffee",,⚠ conflicts with published figures,Do not use this figure as spoken — it conflicts with published data.
+15,00:00:23:27,00:00:25:25,quote follow,Nearly all of them sell coffee,,as recorded,
+16,00:00:25:25,00:00:28:29,name super,Man,,as recorded,Confirm the spelling of the name and title with the speaker.
+17,00:00:25:25,00:00:28:29,data caption,"Store sells 200 cups coffee
+daily",,not backed,Their own figure — nobody publishes it. Attribute it to the speaker.
+18,00:00:25:25,00:00:28:29,quote follow,We do about 200 cups a day,,as recorded,
+19,00:00:28:29,00:00:29:10,quote follow,Yeah,,as recorded,
+20,00:00:29:10,00:00:32:11,data caption,"10 years ago, sold ~300
+coffee/day",,not backed,Their own figure — nobody publishes it. Attribute it to the speaker.
+21,00:00:29:10,00:00:32:11,quote follow,"10 years ago, closer to 300",,as recorded,
+22,00:00:32:11,00:00:32:20,quote follow,Yeah,,as recorded,
+23,00:00:32:20,00:00:36:23,quote follow,"You can taste the difference,
+when made by hand",,as recorded,
+24,00:00:36:23,00:00:39:26,data caption,"Many shops on this street
+have closed",,not backed,No named subject — cannot be checked. Attribute it to the speaker.
+25,00:00:36:23,00:00:39:26,quote follow,"Many shops along this street
+have closed down",,as recorded,
+26,00:00:39:26,00:00:42:26,name super,Barista,,as recorded,Confirm the spelling of the name and title with the speaker.
+27,00:00:39:26,00:00:42:26,data caption,"the barista's business
+opened in 1978",,not backed,Their own figure — nobody publishes it. Attribute it to the speaker.
+28,00:00:39:26,00:00:42:26,quote follow,my father opened in 1978,,as recorded,
+29,00:00:42:26,00:00:46:03,data caption,22 years behind counter,,not backed,Their own figure — nobody publishes it. Attribute it to the speaker.
+30,00:00:42:26,00:00:46:03,quote follow,"Behind this counter,
+for 22 years",,as recorded,
+31,00:00:46:03,00:00:53:00,data caption,"Small businesses employ
+almost half of private workforce",Source: smallbiz.gov.example,multiple sources,current as of 31 December 2025
+32,00:00:46:03,00:00:53:00,quote follow,"Small businesses employ almost
+half of private workforce",,as recorded,

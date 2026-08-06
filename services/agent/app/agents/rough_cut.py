@@ -102,8 +102,24 @@ def _fit_caption(text: str) -> str:
         suffix = text[cut:]
         room = CAPTION_CHARS - len(suffix) - 2
         if room >= 12:  # enough claim left to still mean something
-            return text[:room].rstrip() + "… " + suffix
-    return text[:CAPTION_CHARS - 1].rstrip() + "…"
+            return _clip(text, room) + "… " + suffix
+    return _clip(text, CAPTION_CHARS - 1) + "…"
+
+
+def _clip(text: str, room: int) -> str:
+    """Cut to `room`, at a word boundary where the script has them.
+
+    Stopping mid-word reads as a rendering fault rather than as an ellipsis:
+    "the federal minimum wage hasn't change…" looks broken in a way that
+    "…wage hasn't…" does not. Japanese has no spaces, so it falls back to the
+    straight cut, which is how it is read anyway.
+    """
+    clipped = text[:room].rstrip()
+    space = clipped.rfind(" ")
+    # Honour the boundary only when it does not throw most of the line away.
+    if space >= room * 0.6:
+        clipped = clipped[:space].rstrip()
+    return clipped
 
 
 def _is_cjk(text: str) -> bool:

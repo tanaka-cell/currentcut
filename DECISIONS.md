@@ -478,3 +478,37 @@ Two things deliberately did not change:
   Japanese notes, which is the honest outcome: the parameter says which shoot
   this is, not which language to translate into. A test says so in as many
   words, because the obvious reading of a failing assertion here is "leak".
+
+## 2026-08-05 — D-032: The sample on the landing page is a corpus run
+The film shows the landing page — the shoot ends at seven, the cursor goes to
+the button — and the preview beside the hero is on screen while it does. That
+preview was a live Parallel run, so the caption order sheet's SOURCE column
+carried 106 real third-party hosts, and the frame burned into the hero read
+`Source: www.dol.gov`. None of those organisations agreed to appear in our film.
+
+So the published sample is now a `CURRENTCUT_SEARCH_CORPUS=en` run, and
+`scripts/publish_sample.py` refuses to publish one that is not: it scans every
+exported payload for a host that is not a reserved `.example` name and stops.
+The guard is worth more than the discipline it replaces, because this file is
+easy to regenerate and easy to forget.
+
+Two things the work turned up that were not on the list:
+
+- **The invented hosts were too long.** `www.labourstandards.gov.example` is
+  thirty-one characters against `www.dol.gov`'s eleven, and the burned-in
+  caption is capped at the width of the frame — so fitting the source in ate
+  the claim, and the hero read "The federal minimum wage⋯". Measured, not
+  guessed: the previous hero rendered to within 45px of both edges, which is
+  what says the cap is calibrated and must not be raised for a demo's
+  convenience. The corpus hosts were shortened instead. Real authorities have
+  short names; the invented ones now do too.
+- **Trimming stopped mid-word.** "the federal minimum wage hasn't change…"
+  reads as a rendering fault rather than as an ellipsis. `_fit_caption` now
+  clips at a word boundary where the script has them, and falls back to a
+  straight cut for Japanese, which has none. It refuses the boundary when
+  honouring it would throw away more than 40% of the line, so one long token
+  cannot collapse the caption.
+
+The preview note no longer says "one live run". It says the sources are
+invented and everything else is the code that runs live, because the sample is
+one click from a judge and the claim has to survive them reading it.

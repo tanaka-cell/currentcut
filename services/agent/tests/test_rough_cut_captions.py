@@ -125,3 +125,44 @@ def test_speaker_description_is_not_burned_in_as_a_caption():
     seg = Segment(asset_id="a", speaker="Man in apron", shot_type="interview",
                   transcript="We do about 200 cups a day.")
     assert _caption_for(seg, None, {}) == ""
+
+
+def test_a_trimmed_claim_stops_at_a_word():
+    """Mid-word looks like a rendering fault, not an ellipsis. Seen on the
+    landing page's own hero frame: "the federal minimum wage hasn't change…"."""
+    from app.agents.rough_cut import _fit_caption
+
+    got = _fit_caption("The federal minimum wage hasn't changed since 2009. "
+                       "(Source: labour.gov.example)")
+    assert got == "The federal minimum wage hasn't… (Source: labour.gov.example)"
+    claim = got.split("…")[0]
+    assert not claim.endswith(" ")
+    assert claim.split()[-1] == "hasn't", "the last word must be a whole word"
+
+
+def test_the_source_still_survives_whole():
+    from app.agents.rough_cut import _fit_caption
+
+    got = _fit_caption("Small businesses employ almost half of the private "
+                       "workforce in this country. (Source: smallbiz.gov.example)")
+    assert got.endswith("(Source: smallbiz.gov.example)")
+
+
+def test_a_script_without_spaces_still_trims():
+    """Japanese has no word boundaries; a straight cut is how it reads."""
+    from app.agents.rough_cut import CAPTION_CHARS, _fit_caption
+
+    long_ja = "日本のお持ち帰り商品に対する消費税は8%であり店内飲食では10%が適用される" * 3
+    got = _fit_caption(long_ja + "（出典: www.nta.go.jp）")
+    assert got.endswith("（出典: www.nta.go.jp）")
+    assert len(got) <= CAPTION_CHARS + 2
+
+
+def test_a_boundary_that_would_gut_the_line_is_ignored():
+    """One very long token should not collapse the caption to nothing."""
+    from app.agents.rough_cut import _fit_caption
+
+    got = _fit_caption("Supercalifragilisticexpialidociousness abounds here "
+                       "and everywhere always (Source: x.example)")
+    claim = got.split("…")[0]
+    assert len(claim) > 20, f"trimmed to {claim!r}"
