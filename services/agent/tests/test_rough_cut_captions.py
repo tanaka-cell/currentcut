@@ -166,3 +166,38 @@ def test_a_boundary_that_would_gut_the_line_is_ignored():
                        "and everywhere always (Source: x.example)")
     claim = got.split("…")[0]
     assert len(claim) > 20, f"trimmed to {claim!r}"
+
+
+def test_a_trimmed_caption_does_not_stop_on_a_dangling_word():
+    """The hero frame of the landing page read "…is $7.25 an…", stopping on the
+    article and leaving the reader waiting for "hour". Stopping on the figure
+    is what the line was for."""
+    from app.agents.rough_cut import _fit_caption
+
+    got = _fit_caption("The federal minimum wage is $7.25 an hour. "
+                       "(Source: labour.gov.example)")
+    assert got == "The federal minimum wage is $7.25… (Source: labour.gov.example)"
+
+
+def test_the_source_still_survives_the_trim_whole():
+    """The reason for trimming from the middle in the first place."""
+    from app.agents.rough_cut import _fit_caption
+
+    got = _fit_caption("Small businesses employ almost half of the private "
+                       "workforce in this country. (Source: smallbiz.gov.example)")
+    assert got.endswith("(Source: smallbiz.gov.example)")
+    assert "…" in got
+
+
+def test_trimming_never_eats_the_whole_claim():
+    """A line of nothing but dangling words must not collapse to an ellipsis."""
+    from app.agents.rough_cut import _clip
+
+    assert _clip("the value of the share of the total", 30).strip("… ")
+
+
+def test_a_caption_that_fits_is_left_alone():
+    from app.agents.rough_cut import _fit_caption
+
+    short = "There are more than 150,000 convenience stores in this country now."
+    assert _fit_caption(short) == short

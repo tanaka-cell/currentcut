@@ -512,3 +512,31 @@ Two things the work turned up that were not on the list:
 The preview note no longer says "one live run". It says the sources are
 invented and everything else is the code that runs live, because the sample is
 one click from a judge and the claim has to survive them reading it.
+
+## 2026-08-05 — D-032: The sample a visitor clicks is a corpus run
+The saved sample behind "View a sample" was a live Parallel run, so its script
+table carried the full evidence trail — 106 distinct real third-party hosts,
+trade press and state labour departments among them. That is the correct thing
+for the product to show a director: every page it consulted, not only the one
+it credited. It is the wrong thing to publish in a film, and the landing page
+is on screen while the button is pressed.
+
+So the sample is now taken from a corpus run. `scripts/publish_sample.py`
+exports it and refuses outright if the run carries a real host, because the
+guard is the point: this file gets filmed, and noticing afterwards is too late.
+
+Two things the guard taught while being written:
+
+- Its first version reported `advocacy.smallbusiness.gov.example` as a real
+  `.gov`, because a word boundary sits between "gov" and the ".example" that
+  makes it fictional. Anchoring on the public suffix is not enough; the host
+  has to be matched to its last label.
+- The numbers printed beside the hero are part of the sample, not decoration.
+  The script prints what the page must say, so the two cannot drift — they had
+  already drifted once.
+
+Also fixed while looking at the frame this produces: a trimmed caption stopped
+on the article — "the federal minimum wage is $7.25 an…" — leaving the reader
+waiting for a noun. Word-boundary trimming was already there; what was missing
+was dropping a word that only exists to introduce the next one. It now reads
+"…is $7.25…", which stops on the figure the line was written for.

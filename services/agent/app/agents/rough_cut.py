@@ -106,6 +106,16 @@ def _fit_caption(text: str) -> str:
     return _clip(text, CAPTION_CHARS - 1) + "…"
 
 
+# A word that only exists to introduce the next one. Ending on it leaves the
+# reader waiting for a noun that never arrives: "the minimum wage is $7.25 an…"
+# stops on the article, while "…is $7.25…" stops on the figure, which is what
+# the line was for.
+_DANGLING = {
+    "a", "an", "the", "of", "in", "on", "at", "to", "for", "from", "by", "with",
+    "and", "or", "but", "than", "that", "as", "is", "are", "was", "were", "be",
+}
+
+
 def _clip(text: str, room: int) -> str:
     """Cut to `room`, at a word boundary where the script has them.
 
@@ -119,6 +129,14 @@ def _clip(text: str, room: int) -> str:
     # Honour the boundary only when it does not throw most of the line away.
     if space >= room * 0.6:
         clipped = clipped[:space].rstrip()
+    # Then drop any word left dangling — but never so many that the line stops
+    # meaning something, so one pass at a time and only while there is plenty
+    # of caption left.
+    while " " in clipped and clipped.rsplit(" ", 1)[-1].lower().strip(",.;:") in _DANGLING:
+        shorter = clipped.rsplit(" ", 1)[0].rstrip()
+        if len(shorter) < room * 0.5:
+            break
+        clipped = shorter
     return clipped
 
 
