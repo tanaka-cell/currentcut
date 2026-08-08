@@ -94,6 +94,15 @@ def draft_telops(project_id: str, lines: list[ScriptLine], segments: list[Segmen
                 entry.caution = lang.join_notes(language, entry.caution, note)
             entries.append(entry)
 
+    # Numbers exist only once everything is ordered, so the cross-reference is
+    # written here rather than where the rows are made.
+    order_of = {e.id: e.order for e in entries}
+    for entry in entries:
+        number = order_of.get(entry.same_statement_as)
+        if number:
+            entry.caution = lang.join_notes(
+                language, entry.caution, lang.same_statement_as(language, number))
+
     store.clear(project_id, "telops")
     store.put_many(project_id, "telops", entries)
     return entries
@@ -133,6 +142,7 @@ def _entries_for_line(project_id: str, line: ScriptLine, seg: Segment,
 
     # Data telop: a figure on screen, carrying the source it was checked against.
     disputed = False
+    flagged: TelopEntry | None = None   # a data telop on this line that is not airable as fact
     for claim_id in line.claim_ids:
         claim = claim_by_id.get(claim_id)
         if claim is None:
@@ -169,7 +179,7 @@ def _entries_for_line(project_id: str, line: ScriptLine, seg: Segment,
             ))
         elif claim.verification_status == EvidenceStatus.CONFLICTING:
             disputed = True
-            out.append(TelopEntry(
+            entry = TelopEntry(
                 project_id=project_id, script_line_id=line.id,
                 in_seconds=line.start_seconds, out_seconds=line.end_seconds,
                 telop_type="data",
@@ -178,9 +188,11 @@ def _entries_for_line(project_id: str, line: ScriptLine, seg: Segment,
                 evidence_status=claim.verification_status,
                 checked_against=checked,
                 caution=lang.conflicting(language),
-            ))
+            )
+            flagged = flagged or entry
+            out.append(entry)
         else:
-            out.append(TelopEntry(
+            entry = TelopEntry(
                 project_id=project_id, script_line_id=line.id,
                 in_seconds=line.start_seconds, out_seconds=line.end_seconds,
                 telop_type="data",
@@ -189,7 +201,9 @@ def _entries_for_line(project_id: str, line: ScriptLine, seg: Segment,
                 evidence_status=claim.verification_status,
                 checked_against=checked,
                 caution=claim.volatility_note or lang.unbacked(language),
-            ))
+            )
+            flagged = flagged or entry
+            out.append(entry)
 
     # Comment follow: the quoted line itself.
     if line.audio_text.strip() and not _is_filler(line.audio_text, language):
@@ -206,6 +220,11 @@ def _entries_for_line(project_id: str, line: ScriptLine, seg: Segment,
             # recorded", and an edit house working from that sheet would put
             # the disputed figure on screen anyway.
             caution=lang.quotes_disputed_figure(language) if disputed else "",
+            # Whatever the verdict, the reader of this row has to be able to
+            # find the row that carries it. A sheet is worked down line by line
+            # by somebody who was not at the shoot; "as recorded" on its own
+            # hides that the figure in this sentence is flagged two rows up.
+            same_statement_as=flagged.id if flagged else "",
         ))
     return out
 

@@ -680,3 +680,33 @@ a 4K canvas, so cropping it bought nothing and the tables stayed at 12-14px
 where video wants 24. Screenshots do honour it, and reopening a finished run is
 what makes a screenshot of that run possible. Measured after: 45px in the egress
 log, 32px in the caption table, 35px in the script.
+
+## 2026-08-08 — D-038: The fix was for one status; the defect was for all of them
+
+D-036 made a disputed figure's warning travel to the quote-follow carrying the
+same sentence. A reviewer opened the next workbook and found the same shape
+still there, everywhere else:
+
+    No.15  data caption   Nearly all convenience stores sell coffee
+                          not backed — "Nothing backs this. Attribute it to the
+                          speaker, or drop the number."
+    No.16  quote follow   Nearly all sell coffee
+                          as recorded          (nothing)
+
+Repeated for the minimum wage the shop pays, 200 cups a day, 1978, 22 years. The
+first fix keyed on CONFLICTING. The defect was never about that status; it was
+that a sheet is worked down one row at a time by someone who was not at the
+shoot, and a row reading "as recorded" gives them no way to know the figure in
+that sentence is judged two rows above.
+
+Every quote-follow whose line carries a claim that is not airable as fact now
+says which row carries the verdict: "Same figure as No.15 — follow the note on
+that row." Cross-references are written after ordering, because that is when
+numbers exist.
+
+Deliberately not applied when the data caption is fine: a properly sourced
+figure's quote row stays clean. A column where every row points somewhere is a
+column nobody reads.
+
+The lesson is the one worth keeping: the report named a symptom, and the fix
+matched the symptom rather than the rule behind it.

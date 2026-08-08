@@ -90,6 +90,45 @@ def test_a_line_that_says_something_is_kept(text):
     assert [e for e in out if e.telop_type == "comment"], f"{text!r} was dropped"
 
 
+def _sheet_for(status: EvidenceStatus, spoken: str):
+    """The rows as draft_telops numbers them, which is when cross-references
+    can be written."""
+    claim = _claim(status, spoken)
+    line = _line(spoken, [claim.id])
+    return telop.draft_telops("p_xref", [line], [_segment()], [claim], [])
+
+
+@pytest.mark.parametrize("status", [
+    EvidenceStatus.CONFLICTING,
+    EvidenceStatus.UNVERIFIED,          # "nobody publishes it"
+    EvidenceStatus.EDITORIAL_LANGUAGE,  # "no named subject"
+])
+def test_the_quote_points_at_the_row_that_carries_the_verdict(status, monkeypatch):
+    """The first fix only covered CONFLICTING. An outside reviewer opened the
+    workbook and found the same shape still there for every other unairable
+    status: a data caption saying "nobody publishes it" with a quote-follow one
+    row below marked "as recorded" and nothing else. A sheet is worked down one
+    row at a time, so that row has to point somewhere."""
+    monkeypatch.setattr(telop.store, "clear", lambda *a, **k: None)
+    monkeypatch.setattr(telop.store, "put_many", lambda *a, **k: None)
+    rows = _sheet_for(status, "Nearly all of them sell coffee.")
+    data = [r for r in rows if r.telop_type == "data"]
+    quotes = [r for r in rows if r.telop_type == "comment"]
+    assert data and quotes
+    assert f"No.{data[0].order}" in quotes[0].caution, quotes[0].caution
+
+
+def test_a_quote_with_no_claim_on_the_line_says_nothing_extra(monkeypatch):
+    """Every quote-follow pointing somewhere would train the reader to ignore
+    the column."""
+    monkeypatch.setattr(telop.store, "clear", lambda *a, **k: None)
+    monkeypatch.setattr(telop.store, "put_many", lambda *a, **k: None)
+    line = _line("You taste the difference when it is made by hand.", [])
+    rows = telop.draft_telops("p_xref2", [line], [_segment()], [], [])
+    quotes = [r for r in rows if r.telop_type == "comment"]
+    assert quotes and quotes[0].caution == ""
+
+
 def test_notes_are_joined_in_the_language_of_the_sheet():
     """An English sheet was printing 「／」 between two English sentences."""
     assert lang.join_notes(lang.EN, "first", "second") == "first · second"

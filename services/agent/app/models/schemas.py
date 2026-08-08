@@ -252,6 +252,10 @@ class TelopEntry(BaseModel):
     # 裏付け列に出す照合先。source_note が「放送に出す1件」なのに対し、こちらは
     # 「実際に当たった先」全部。片方しか無いと、裏付け列が状態しか語らない。
     checked_against: list[str] = []
+    # この行が、どのデータテロップと同じ発言を載せているか（TelopEntry.id）。
+    # 発注表は1行ずつ実行されるので、コメントフォロー単独では「隣の行に警告が
+    # あること」が読み取れない。番号は採番後に埋める。
+    same_statement_as: str = ""
     caution: str = ""            # 備考: what the director must still settle
     approved: bool = False
 
@@ -314,3 +318,9 @@ class EgressLog(BaseModel):
     # separate rows, linked by attempt_id. Never overwrite an existing row.
     phase: str = "attempt"  # attempt | outcome
     attempt_id: str = ""
+    # The provider's own identifier for the call, and how long it took. Without
+    # these the ledger can only be checked against itself; with them a row can
+    # be reconciled against Parallel's records, which is what makes it evidence
+    # rather than a claim about evidence.
+    provider_request_id: str = ""
+    elapsed_ms: int = 0

@@ -520,15 +520,23 @@ async function loadResults(src) {
       </tr>`;
     }).join('') + '</tbody>';
 
+  // "Raw transcript: not sent" used to sit next to "Status: sent" and read as a
+  // contradiction. The column says what it means now: the transcript is never
+  // what leaves, only the query built from it.
   $('#egress').innerHTML = `<thead><tr>
-      <th>Phase</th><th>Status</th><th>Label</th><th>Query sent</th><th>Raw transcript</th><th>Reason</th>
+      <th>Phase</th><th>Status</th><th>Label</th><th>Query sent</th>
+      <th>Transcript</th><th>Provider call</th><th>Reason</th>
     </tr></thead><tbody>` +
     egress.map(e => `<tr>
       <td class="tc">${esc(e.phase)}</td>
       <td>${tag(e.status==='blocked'?'t-stop':(e.status==='completed'?'t-ok':'t-mute'), e.status)}</td>
       <td class="tc">${esc(e.classification)}</td>
       <td>${e.query_sent ? `<code>${esc(e.query_sent)}</code>` : '<span class="t-mute">nothing sent</span>'}</td>
-      <td>${tag('t-ok','not sent')}</td>
+      <td>${tag('t-ok','withheld')}</td>
+      <td class="src">${e.status==='blocked' ? '<span class="t-mute">no call made</span>'
+        : `<code>${esc(e.provider)}</code>${e.provider_request_id
+            ? `<br><code>${esc(e.provider_request_id)}</code>` : ''}${e.elapsed_ms
+            ? `<br>${e.elapsed_ms} ms` : ''}`}</td>
       <td class="src">${esc(e.reason)}</td>
     </tr>`).join('') + '</tbody>';
 

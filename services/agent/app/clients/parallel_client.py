@@ -8,6 +8,7 @@ SDK imports): from parallel import Parallel; client.search.create(...).
 from __future__ import annotations
 
 import re
+import time
 from urllib.parse import urlparse
 
 from pydantic import BaseModel
@@ -31,6 +32,9 @@ class SearchPage(BaseModel):
 class SearchResponse(BaseModel):
     pages: list[SearchPage] = []
     provider: str = "parallel"
+    # Parallel's own id for the call, so a row in the egress ledger can be
+    # checked against the provider's records and not only against itself.
+    request_id: str = ""
 
 
 def _norm(text: str) -> str:
@@ -89,7 +93,8 @@ class ParallelClient:
                 break
 
         def record(status: str, reason: str, phase: str = "attempt",
-                   attempt_id: str = "", result_count: int = 0) -> EgressLog:
+                   attempt_id: str = "", result_count: int = 0,
+                   provider_request_id: str = "", elapsed_ms: int = 0) -> EgressLog:
             """Append-only: every write is a new row, so the attempt record
             survives alongside its outcome."""
             entry = EgressLog(
@@ -98,6 +103,7 @@ class ParallelClient:
                 query_sent=query if status in ("sent", "completed") else "",
                 provider=self.provider, status=status, reason=reason,
                 phase=phase, attempt_id=attempt_id, result_count=result_count,
+                provider_request_id=provider_request_id, elapsed_ms=elapsed_ms,
             )
             store.put(project_id, "egress_log", entry)
             return entry
@@ -112,14 +118,18 @@ class ParallelClient:
         attempt = record("sent", reason)
         self.calls_this_run += 1
 
+        started = time.monotonic()
         try:
             response = (self._corpus_search(queries) if self.corpus
                         else self._mock_search(query) if self.mock
                         else self._real_search(queries, after_date))
         except Exception as exc:
-            record("failed", str(exc)[:200], phase="outcome", attempt_id=attempt.id)
+            record("failed", str(exc)[:200], phase="outcome", attempt_id=attempt.id,
+                   elapsed_ms=int((time.monotonic() - started) * 1000))
             raise
         record("completed", "ok", phase="outcome", attempt_id=attempt.id,
+               provider_request_id=response.request_id,
+               elapsed_ms=int((time.monotonic() - started) * 1000),
                result_count=len(response.pages))
 
         results = []
@@ -157,6 +167,14 @@ class ParallelClient:
         if after_date:
             kwargs["advanced_settings"] = {"source_policy": {"after_date": after_date}}
         result = self._sdk_client.search(**kwargs)
+        # The SDK spells this differently across versions and may not expose it
+        # at all; an absent id is left empty rather than invented.
+        request_id = ""
+        for attr in ("request_id", "id", "search_id"):
+            value = getattr(result, attr, None)
+            if isinstance(value, str) and value:
+                request_id = value
+                break
         pages = []
         for p in getattr(result, "results", None) or getattr(result, "pages", None) or []:
             get = (lambda k, d="": getattr(p, k, None) or (p.get(k, d) if isinstance(p, dict) else d) or d)
@@ -167,7 +185,7 @@ class ParallelClient:
                 excerpt=" ".join(excerpts) if isinstance(excerpts, list) else str(excerpts),
                 published_at=get("published_date") or get("publish_date"),
             ))
-        return SearchResponse(pages=pages, provider="parallel")
+        return SearchResponse(pages=pages, provider="parallel", request_id=request_id)
 
     _corpus_cache: dict[str, list[dict]] = {}
 

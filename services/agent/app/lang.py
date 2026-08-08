@@ -131,6 +131,18 @@ def quotes_disputed_figure(language: str) -> str:
             "speaker; do not caption it as fact.")
 
 
+def same_statement_as(language: str, number: int) -> str:
+    """Points a quote-follow at the data telop carrying the same figure.
+
+    Without it, a row reading "as recorded" gives the edit house no way to know
+    that the figure inside the sentence is flagged two rows above — and the
+    sheet is worked down one row at a time.
+    """
+    if language == JA:
+        return f"No.{number}と同じ数字　その行の指示に従う"
+    return f"Same figure as No.{number} — follow the note on that row."
+
+
 def join_notes(language: str, *notes: str) -> str:
     """Join two remarks in one cell. The separator is a Japanese one; an
     English sheet was printing 「／」 in the middle of an English sentence."""
