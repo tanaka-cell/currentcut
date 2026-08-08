@@ -32,11 +32,39 @@ set, and all three are now rejected 3/3.
 
 **The seven missed confirmations are identical in all three passes** — not
 variance, a systematic gap. Six are the same fact in different words: 「コンビニ
-エンスストアは全国に約5万6000店」. The retrieved pages give 55,979 and 55,620,
-which is what 「約5万6000」 means, and one page gives 57,594 for a different year.
-The comparator will not accept an approximation as a value match, and in two
-phrasings it reads the other year as a contradiction. A claim hedged with 「約」
-should be checked against the tolerance the speaker actually stated.
+エンスストアは全国に約5万6000店」.
+
+An earlier version of this file blamed the approximation rule. That was wrong,
+and reading the recorded verdicts back (`judged.jsonl`) is what showed it: the
+comparator accepts 「5万5620店」 as a match for 「約5万6000」 — `supports_claim:
+true` — in three of the six. The rounding rule works. What actually loses these
+six is duller and harder to fix:
+
+- **The retrieved excerpt usually contains no figure at all.** Across the six,
+  between five and nine of the ten sources per claim came back with
+  `source_value` empty — navigation, menus, article furniture. The comparator
+  cannot confirm a number it was never shown.
+- **The one figure that does support the claim is from 2019.** 「5万5620店」 is a
+  2019 count, and a seven-year-old measurement does not establish a present-tense
+  claim about a number that moves, so `STALE_EVIDENCE_YEARS` discards it. That is
+  the rule working, not failing. In a seventh case the only support is a single
+  non-primary source, which by the same stated rule is not enough.
+
+So most of this gap is not a comparator that is too strict. It is retrieval that
+never reaches a current, figure-bearing page for a Japanese industry statistic,
+plus two rules doing what they were written to do. The honest next step is
+better retrieval — name the publishing body, pull a longer excerpt — not a
+looser tolerance. Loosening the tolerance would buy a nicer number here by
+accepting evidence that does not establish the claim, which is the trade this
+file exists to refuse.
+
+One real defect did surface while reading the verdicts back, and it is fixed. A
+source too old to confirm a claim could still **contradict** it, so a 2023 count
+of 57,594 was putting 「この数字のまま出さない」 on a line that is true. Staleness
+now applies to contradictions as well as to support. On this recorded set the
+change moves no score — 2023 falls inside the three-year window, so nothing here
+is suppressed by it — but it closes a route by which a true line could be
+condemned by evidence too old to speak to it.
 
 **Wrong source credited (0–1) is not the ranking rule.** In passes 1 and 3 the
 credit for the federal minimum wage went to `webapps.dol.gov`, an application

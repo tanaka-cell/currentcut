@@ -322,11 +322,19 @@ const VOICE = {
 };
 let voice = VOICE.en;
 
+// The run takes minutes and the progress list sits below the fold, so pressing
+// the button changed nothing a visitor could see except the button's own label.
+// Anyone who did not think to scroll had no reason to believe it had started.
+function revealProgress() {
+  $('#progress').classList.remove('hidden');
+  $('#progress').scrollIntoView({behavior: 'smooth', block: 'start'});
+}
+
 $('#run').onclick = async () => {
   $('#run').disabled = true;
   $('#sample-btn').disabled = true;
   $('#run').textContent = 'Starting…';
-  $('#progress').classList.remove('hidden');
+  revealProgress();
   const shoot = (document.querySelector('input[name="shoot"]:checked') || {}).value || 'en';
   voice = VOICE[shoot] || VOICE.en;
   const r = await fetch(`/api/demo/start?shoot=${encodeURIComponent(shoot)}`, {method:'POST'});
@@ -385,7 +393,7 @@ $('#own-run').onclick = async () => {
   projectId = d.project_id;
   voice = VOICE.en;
   $('#run').textContent = voice.working;
-  $('#progress').classList.remove('hidden');
+  revealProgress();
   poll();
 };
 

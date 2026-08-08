@@ -152,6 +152,19 @@ def _conflicting(claim: Claim, results: list[ResearchResult]) -> bool:
     history as "1938 - 2009" and that is not the string 2009. Telling a director
     to drop a true line is as damaging as letting a false one through, so the
     comparator is now asked the question directly.
+
+    Staleness is applied here too, and that is the point of the second test.
+    A figure too old to confirm a present-tense claim is also too old to refute
+    one: 「コンビニは全国に約5万6000店」 was being marked CONFLICTING by a 2023
+    count of 57,594 — a different year of a number that moves, not a
+    contradiction. The asymmetry ran the damaging way round. A stale source
+    could never make a claim confirmed, but it could still put 「この数字のまま
+    出さない」 on the caption sheet for a line that was true.
+
+    A claim that fixes its own period is unaffected, because `_is_stale`
+    exempts it: evidence about 2009 is the right evidence for "unchanged since
+    2009", whether it agrees or disagrees.
     """
     return any(r.contradicts_claim and r.entity_match and r.attribute_match
+               and not _is_stale(r)
                for r in results)

@@ -319,6 +319,48 @@ def test_a_genuine_contradiction_is_still_flagged(monkeypatch):
     assert claim.verification_status.value == "CONFLICTING"
 
 
+def test_a_figure_too_old_to_confirm_is_too_old_to_contradict(monkeypatch):
+    """The asymmetry ran the damaging way round.
+
+    Six phrasings of 「コンビニは全国に約5万6000店」 — all true — were coming back
+    CONFLICTING on the strength of a 2023 count of 57,594. A store count from a
+    different year is a different year of a number that moves, not a refutation
+    of a present-tense claim. Staleness already stopped such a figure making a
+    claim confirmed; it now stops it condemning one, so 「この数字のまま出さない」
+    no longer lands on a line that is correct."""
+    from datetime import datetime, timezone
+
+    from app.agents.evidence import EvidenceJudgment
+    from app.models.schemas import ResearchResult
+
+    long_ago = datetime.now(timezone.utc).year - 9
+    claim = _research_with(
+        monkeypatch,
+        [EvidenceJudgment(entity_match=True, attribute_match=True, value_match=False,
+                          contradicts_claim=True, source_value="57,594",
+                          value_as_of_year=long_ago,
+                          reason="a count from a year the claim is not about")],
+        [ResearchResult(claim_id="", source_url="https://www.nikkei.com/a")])
+    assert claim.verification_status.value != "CONFLICTING"
+
+
+def test_a_claim_about_its_own_period_can_still_be_contradicted(monkeypatch):
+    """The exemption must not become a way to ignore evidence. A claim that
+    fixes its own period is never stale, so old evidence about that period
+    still refutes it."""
+    from app.agents.evidence import EvidenceJudgment
+    from app.models.schemas import ResearchResult
+
+    claim = _research_with(
+        monkeypatch,
+        [EvidenceJudgment(entity_match=True, attribute_match=True, value_match=False,
+                          contradicts_claim=True, claim_names_its_own_date=True,
+                          source_value="$5.15", value_as_of_year=2006,
+                          reason="the rate that year was not the one claimed")],
+        [ResearchResult(claim_id="", source_url="https://www.dol.gov/a")])
+    assert claim.verification_status.value == "CONFLICTING"
+
+
 def test_a_recent_figure_still_confirms(monkeypatch):
     from datetime import datetime, timezone
 
