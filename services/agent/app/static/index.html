@@ -325,9 +325,23 @@ let voice = VOICE.en;
 // The run takes minutes and the progress list sits below the fold, so pressing
 // the button changed nothing a visitor could see except the button's own label.
 // Anyone who did not think to scroll had no reason to believe it had started.
+// Smooth is the nicety; arriving is the requirement. Some browsers drop a
+// smooth scroll silently — it was dropped in the one this was tested in — and a
+// scroll that never happens leaves the visitor looking at an unchanged page,
+// which is the whole problem this is here to solve. So: ask for smooth, then
+// check, and jump if nothing moved.
+function scrollTo$(sel, block) {
+  const el = $(sel);
+  const from = window.scrollY;
+  el.scrollIntoView({behavior: 'smooth', block: block || 'start'});
+  setTimeout(() => {
+    if (window.scrollY === from) el.scrollIntoView({block: block || 'start'});
+  }, 500);
+}
+
 function revealProgress() {
   $('#progress').classList.remove('hidden');
-  $('#progress').scrollIntoView({behavior: 'smooth', block: 'start'});
+  scrollTo$('#progress', 'start');
 }
 
 $('#run').onclick = async () => {
@@ -434,7 +448,7 @@ $('#sample-btn').onclick = async () => {
   } finally {
     $('#sample-btn').disabled = false;
   }
-  $('#results').scrollIntoView({behavior: 'smooth'});
+  scrollTo$('#results');
 };
 
 // Come back to a run. The whole promise is that you hand the footage over and
@@ -446,7 +460,7 @@ $('#sample-btn').onclick = async () => {
   projectId = wanted;
   try {
     await loadResults(liveSrc(wanted));
-    $('#results').scrollIntoView({behavior: 'smooth'});
+    scrollTo$('#results');
   } catch (e) {
     projectId = null;
     console.error('could not reopen', wanted, e);
