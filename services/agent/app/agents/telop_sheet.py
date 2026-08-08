@@ -335,8 +335,8 @@ def write_manuscript(entries: list[TelopEntry], out_path: str | Path,
     # Each of these needs room to be read: the programme name ran into the air
     # date and printed as "Programme: The corr".
     ws["A2"] = f"{programme}: {title}" if title else f"{programme}:"
-    ws.merge_cells("A2:D2")
-    ws["E2"] = f"{air}: {air_date}" if air_date else f"{air}:"
+    ws.merge_cells("A2:E2")
+    ws["F2"] = f"{air}: {air_date}" if air_date else f"{air}:"
     ws["G2"] = lang.sheet(lang.SHEET_WARNING, language)
     ws.merge_cells("G2:H2")
     ws["G2"].font = Font(size=9, color="8A5A12")

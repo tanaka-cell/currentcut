@@ -2,8 +2,14 @@
 
 The sample is a real run, saved. It is also the first thing a visitor clicks,
 so it has to hold two properties at once: the numbers printed beside it on the
-page must be that run's own numbers, and — since the film shows this page — no
-real organisation may appear in it.
+page must be that run's own numbers, and — since the film shows this page —
+every source, page title and URL in it must be invented.
+
+The queries are deliberately left alone. A query that goes looking for who
+publishes a figure names that body, and that is the search the product really
+makes. The organisers' guidance is about names, titles and URLs *returned by*
+live Search; what we ask it is ours. The guard below checks hosts for that
+reason, and the page says so rather than claiming more than the corpus does.
 
     python scripts/publish_sample.py <project_id> --hero-at 29.2 --write
 

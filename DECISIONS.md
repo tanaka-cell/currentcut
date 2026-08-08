@@ -585,3 +585,32 @@ Two more defects were visible once the page could be read at all:
   column, and `Checked against` wraps too instead of spilling sideways.
 - The programme name printed as "Programme: The corr", running into the air
   date. The header cells are merged now.
+
+## 2026-08-08 — D-035: Say what the corpus actually makes fictional
+
+Filming the egress log showed real names on screen — US Department of Labor,
+Census Bureau, National Association of Convenience Stores — inside the queries
+the pipeline sent. The corpus replaces what the search *returns*; it does not
+touch what the search *asks*, and a query that goes looking for who publishes a
+figure names that body.
+
+The landing page said "no real organisation appears in our demo material". That
+was not true, and it was our sentence, not a rule anyone imposed.
+
+Checked against the primary source rather than memory. The organisers' guidance
+(Parallel team, via Janet Fang) is: use fictional sites "rather than showing
+real third-party names, page titles, or URLs **returned by live Search**", and
+"published materials should use a fictional/mock corpus". The rules clause
+concerns third-party "advertising, slogan, logo, trademark or otherwise
+indicates a sponsorship or endorsement". A query naming a public body is none of
+those, and is not something Search returned.
+
+So the query text stays — it is what the product really sends, and hiding it
+would make the egress log less honest, which is the opposite of its purpose.
+The overclaiming sentence is what changes. The page now says every source and
+page is invented, and says plainly that the queries name real publishing
+bodies, because that is what the search asks.
+
+The demo video keeps the egress log in shot for the same reason: attempt and
+outcome side by side, with the two blocked rows reading "nothing sent", is the
+only picture that shows the gate working.
