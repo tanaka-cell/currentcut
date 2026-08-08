@@ -276,10 +276,23 @@ def _condense(material: str, telop_type: str, style_block: str = "",
 def _strip_punctuation(text: str, language: str = lang.JA) -> str:
     """A Japanese telop carries no 。 or 、 — phrases are separated by a full-width
     space instead. An English lower third keeps its commas and loses only the
-    full stop that would otherwise end it."""
+    full stop that would otherwise end it.
+
+    An English caption also opens with a capital. The material is often lifted
+    from the middle of a sentence — "behind this counter 22 years" — and a sheet
+    where some rows start lower case and others upper reads as careless work,
+    not as a faithful record of how the speaker said it."""
     if language == lang.JA:
         return re.sub(r"[、。]+", "　", text).strip("　 ")
-    return re.sub(r"\s*\.\s*$", "", text.strip())
+    text = re.sub(r"\s*\.\s*$", "", text.strip())
+    # Only the very first letter, and only when the whole opening word is lower
+    # case: a caption may legitimately open with a figure ("22 years") or with a
+    # name that carries its own capital inside it ("iPhone", "eBay"), and
+    # neither of those is a typing slip to correct.
+    first = text.split(" ", 1)[0]
+    if first[:1].islower() and first == first.lower():
+        return text[:1].upper() + text[1:]
+    return text
 
 
 def _sep(language: str) -> str:

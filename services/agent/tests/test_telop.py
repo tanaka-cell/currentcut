@@ -148,6 +148,21 @@ def test_figures_are_never_broken_across_lines():
             assert not line[0].isdigit() or "万" not in "".join(lines[:1]), lines
 
 
+def test_english_caption_opens_with_a_capital():
+    """The material is usually lifted from the middle of a sentence, so some
+    rows came back lower case and some upper. On a sheet that goes to an edit
+    house that reads as careless typing rather than fidelity to the speaker. A
+    figure or an initialism at the head of the line is left exactly as it is."""
+    from app.agents.telop import _fit
+
+    assert _fit("behind this counter 22 years", "en")[0].startswith("Behind")
+    assert _fit("my father opened this in 1978", "en")[0].startswith("My")
+    assert _fit("22 years behind this counter", "en")[0].startswith("22")
+    assert _fit("iPhone sales fell", "en")[0].startswith("iPhone")
+    # Japanese has no case, and the rule must not touch it.
+    assert _fit("この店は1978年から", "ja")[0].startswith("この店")
+
+
 def test_manuscript_excel_needs_no_template(overnight_run, tmp_path):
     """The everyday deliverable: the director's テロップ原稿, emailed to the edit
     house, which pours it into the programme's own form. No template required."""
