@@ -91,7 +91,7 @@ def draft_telops(project_id: str, lines: list[ScriptLine], segments: list[Segmen
             longest = max((len(l) for l in entry.text_lines), default=0)
             if longest > max_chars:
                 note = lang.too_long(language, longest, max_chars)
-                entry.caution = f"{entry.caution}／{note}" if entry.caution else note
+                entry.caution = lang.join_notes(language, entry.caution, note)
             entries.append(entry)
 
     store.clear(project_id, "telops")
@@ -132,12 +132,17 @@ def _entries_for_line(project_id: str, line: ScriptLine, seg: Segment,
         ))
 
     # Data telop: a figure on screen, carrying the source it was checked against.
+    disputed = False
     for claim_id in line.claim_ids:
         claim = claim_by_id.get(claim_id)
         if claim is None:
             continue
         results = research_by_claim.get(claim_id, [])
         citable = evidence.citable_source(results, claim.claim_text)
+        # What the figure was actually checked against — not the same as the
+        # single source credited on air. A 裏付け column that says only
+        # "multiple sources" gives the edit house nothing it can audit.
+        checked = evidence.supporting_domains(results, limit=3)
 
         if claim.verification_status in _AIRABLE_AS_FACT:
             # The figure was checked either way. Whether it may carry a 出典 on
@@ -150,7 +155,7 @@ def _entries_for_line(project_id: str, line: ScriptLine, seg: Segment,
                 source_note = ""
                 caution = lang.no_primary_source(language, backers)
                 if claim.volatility_note:
-                    caution = f"{caution}／{claim.volatility_note}"
+                    caution = lang.join_notes(language, caution, claim.volatility_note)
             out.append(TelopEntry(
                 project_id=project_id, script_line_id=line.id,
                 in_seconds=line.start_seconds, out_seconds=line.end_seconds,
@@ -159,9 +164,11 @@ def _entries_for_line(project_id: str, line: ScriptLine, seg: Segment,
                                 language),
                 source_note=source_note,
                 evidence_status=claim.verification_status,
+                checked_against=checked,
                 caution=caution,
             ))
         elif claim.verification_status == EvidenceStatus.CONFLICTING:
+            disputed = True
             out.append(TelopEntry(
                 project_id=project_id, script_line_id=line.id,
                 in_seconds=line.start_seconds, out_seconds=line.end_seconds,
@@ -169,6 +176,7 @@ def _entries_for_line(project_id: str, line: ScriptLine, seg: Segment,
                 text_lines=_fit(_condense(claim.on_screen, "data telop", style_block, language),
                                 language),
                 evidence_status=claim.verification_status,
+                checked_against=checked,
                 caution=lang.conflicting(language),
             ))
         else:
@@ -179,11 +187,12 @@ def _entries_for_line(project_id: str, line: ScriptLine, seg: Segment,
                 text_lines=_fit(_condense(claim.on_screen, "data telop", style_block, language),
                                 language),
                 evidence_status=claim.verification_status,
+                checked_against=checked,
                 caution=claim.volatility_note or lang.unbacked(language),
             ))
 
     # Comment follow: the quoted line itself.
-    if line.audio_text.strip():
+    if line.audio_text.strip() and not _is_filler(line.audio_text, language):
         out.append(TelopEntry(
             project_id=project_id, script_line_id=line.id,
             in_seconds=line.start_seconds, out_seconds=line.end_seconds,
@@ -191,8 +200,36 @@ def _entries_for_line(project_id: str, line: ScriptLine, seg: Segment,
             text_lines=_fit(_condense(line.audio_text, "comment follow", style_block, language),
                             language),
             evidence_status=EvidenceStatus.FOOTAGE_CONFIRMED,
+            # The quotation is confirmed as *said*; the figure inside it can
+            # still be the one the data telop just warned about. Marking only
+            # the data row leaves the same sentence on the sheet as "as
+            # recorded", and an edit house working from that sheet would put
+            # the disputed figure on screen anyway.
+            caution=lang.quotes_disputed_figure(language) if disputed else "",
         ))
     return out
+
+
+# Backchannel — the noise an interviewer makes to show they are listening.
+# Nobody orders a caption for it, and a sheet that lists "Mhm" as a telop reads
+# as a transcript dump rather than a director's order.
+_BACKCHANNEL = {
+    "mhm", "mm", "mmm", "hmm", "uh", "uhh", "um", "umm", "ah", "oh", "yeah",
+    "yep", "yes", "ok", "okay", "right", "sure", "i see", "wow",
+    "ええ", "うん", "うーん", "はい", "ふーん", "へえ", "へー", "あー", "えー",
+}
+
+
+def _is_filler(text: str, language: str) -> bool:
+    """True when the whole line is a backchannel and nothing else.
+
+    Deliberately narrow: it must match a listed token after punctuation is
+    stripped. A short line that carries any content of its own is kept, because
+    dropping something a speaker actually said is the worse failure.
+    """
+    bare = re.sub(r"[\s。、．，.,!?！？…・~〜ー―\-]+$", "", text.strip().lower())
+    bare = re.sub(r"^[\s\-–—]+", "", bare)
+    return bare in _BACKCHANNEL
 
 
 def _condense(material: str, telop_type: str, style_block: str = "",

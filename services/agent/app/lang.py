@@ -118,6 +118,26 @@ def unbacked(language: str) -> str:
     return "Nothing backs this. Attribute it to the speaker, or drop the number."
 
 
+def quotes_disputed_figure(language: str) -> str:
+    """Put on the quote-follow whose sentence contains a disputed figure.
+
+    The quotation is confirmed as said; the figure inside it is not. Warning
+    only the data telop leaves this row reading "as recorded", and a sheet is
+    executed row by row.
+    """
+    if language == JA:
+        return "⚠この発言に食い違いのある数字　話者の発言として扱い　事実として出さない"
+    return ("⚠ This quotation contains the disputed figure. Attribute it to the "
+            "speaker; do not caption it as fact.")
+
+
+def join_notes(language: str, *notes: str) -> str:
+    """Join two remarks in one cell. The separator is a Japanese one; an
+    English sheet was printing 「／」 in the middle of an English sentence."""
+    parts = [n.strip() for n in notes if n and n.strip()]
+    return ("／" if language == JA else " · ").join(parts)
+
+
 def too_long(language: str, longest: int, limit: int) -> str:
     if language == JA:
         return f"{longest}字　1行{limit}字に収まらない　要short"
@@ -208,9 +228,12 @@ SHEET_TITLE = {JA: "テロップ原稿", EN: "Caption Order Sheet"}
 SHEET_PROGRAMME = {JA: "番組・企画", EN: "Programme"}
 SHEET_AIR_DATE = {JA: "OA", EN: "Air date"}
 
+# A quote-follow that repeats a disputed figure is warned in 備考, not in 裏付け —
+# the quotation itself is confirmed. So the instruction has to send the reader
+# to ⚠ wherever it appears, not only to one column.
 SHEET_WARNING = {
-    JA: "※「裏付け」欄が⚠または裏付けなしの行は、数字を出す前に確認してください",
-    EN: "Rows marked ⚠ or 'not backed' in Checked against: confirm the figure before it goes to air.",
+    JA: "※⚠のある行と「裏付け」が裏付けなしの行は、数字を出す前に確認してください",
+    EN: "Any ⚠ row, and any 'not backed' row: confirm the figure before it airs.",
 }
 
 # (label, column width). Widths differ because English words run longer than

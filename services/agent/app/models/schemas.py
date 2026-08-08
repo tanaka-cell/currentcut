@@ -247,8 +247,11 @@ class TelopEntry(BaseModel):
     out_seconds: float = 0
     telop_type: str = "comment"  # name | data | comment | place | title
     text_lines: list[str] = []   # one entry per displayed line
-    source_note: str = ""        # 出典表記 — required on data telops
+    source_note: str = ""        # 出典表記 — the credit that goes on air
     evidence_status: EvidenceStatus = EvidenceStatus.EDITORIAL_LANGUAGE
+    # 裏付け列に出す照合先。source_note が「放送に出す1件」なのに対し、こちらは
+    # 「実際に当たった先」全部。片方しか無いと、裏付け列が状態しか語らない。
+    checked_against: list[str] = []
     caution: str = ""            # 備考: what the director must still settle
     approved: bool = False
 

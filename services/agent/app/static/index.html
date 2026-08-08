@@ -537,16 +537,18 @@ async function loadResults(src) {
   $('#xlsx').href = src.xlsx;
   $('#telops').innerHTML = `<thead><tr>
       <th>No</th><th>IN / OUT</th><th>Type</th><th>On screen</th>
-      <th>Source line</th><th>Note to the director</th>
+      <th>Source line</th><th>Checked against</th><th>Note to the director</th>
     </tr></thead><tbody>` +
     telops.map(t => {
       const [cls] = EV[t.evidence_status] || ['t-mute'];
+      const checked = (t.checked_against || []).join(', ');
       return `<tr>
         <td class="tc">${t.order}</td>
         <td class="tc">${tcf(t.in_seconds)}<br>${tcf(t.out_seconds)}</td>
         <td>${tag(cls, TT[t.telop_type] || t.telop_type)}</td>
         <td>${(t.text_lines||[]).map(l=>esc(l)).join('<br>')}</td>
         <td class="src">${esc(t.source_note || '')}</td>
+        <td class="src">${esc(checked)}</td>
         <td class="src">${esc(t.caution || '')}</td>
       </tr>`;
     }).join('') + '</tbody>';

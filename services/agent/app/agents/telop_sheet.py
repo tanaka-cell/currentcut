@@ -281,6 +281,19 @@ def _first_tc_ref(mapping: SheetMapping) -> tuple[str, int]:
 _WRAPPING_COLUMNS = (5, 6, 7, 8)
 
 
+def _checked_cell(entry, evidence: dict) -> str:
+    """The 裏付け cell: the verdict, and under it what was actually consulted.
+
+    The column is the one thing this sheet adds to a normal caption order, and
+    it used to hold a verdict alone — "multiple sources" tells an edit house
+    that somebody checked, but not what they checked, which is not something
+    anyone can act on or audit.
+    """
+    verdict = evidence.get(entry.evidence_status.value, entry.evidence_status.value)
+    hosts = [h for h in (entry.checked_against or []) if h]
+    return f"{verdict}\n{', '.join(hosts)}" if hosts else verdict
+
+
 def _display_width(text: str) -> int:
     """Columns a string occupies on screen, counting CJK glyphs as two."""
     return sum(2 if unicodedata.east_asian_width(ch) in "WF" else 1 for ch in text)
@@ -363,7 +376,7 @@ def write_manuscript(entries: list[TelopEntry], out_path: str | Path,
             types.get(entry.telop_type, entry.telop_type),
             "\n".join(entry.text_lines),
             entry.source_note,
-            evidence.get(entry.evidence_status.value, entry.evidence_status.value),
+            _checked_cell(entry, evidence),
             entry.caution,
         ]
         for index, value in enumerate(values, start=1):
@@ -421,6 +434,5 @@ def write_csv(entries: list[TelopEntry], out_path: str | Path,
             writer.writerow([e.order, _tc(e.in_seconds), _tc(e.out_seconds),
                              types.get(e.telop_type, e.telop_type),
                              "\n".join(e.text_lines), e.source_note,
-                             evidence.get(e.evidence_status.value, e.evidence_status.value),
-                             e.caution])
+                             _checked_cell(e, evidence), e.caution])
     return out_path

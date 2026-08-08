@@ -614,3 +614,46 @@ bodies, because that is what the search asks.
 The demo video keeps the egress log in shot for the same reason: attempt and
 outcome side by side, with the two blocked rows reading "nothing sent", is the
 only picture that shows the gate working.
+
+## 2026-08-08 — D-036: The sheet is executed row by row, by someone who was not there
+
+An outside reviewer opened the workbook the demo produces and found the defect
+that matters most in this whole project:
+
+    No.13  data caption   Nearly all convenience stores sell coffee
+                          ⚠ conflicts with published figures
+                          "Do not use this figure as spoken."
+    No.14  quote follow   Nearly all of them sell coffee
+                          as recorded          (no note at all)
+
+The same sentence. The warning was attached to the data telop and nowhere else,
+so an edit house working down the sheet would have set the disputed figure as a
+caption anyway. The column that exists to stop exactly that was silent on the
+row that would have done it.
+
+Three changes, all of them about the sheet being an instruction rather than a
+report:
+
+- **The warning travels with the sentence.** A quote-follow whose line carries a
+  disputed figure now says so. It keeps `as recorded` as its verdict, because
+  the quotation *is* confirmed as said — what is disputed is the figure inside
+  it — and the note tells the operator to attribute it and not caption it as
+  fact. The header instruction now points at ⚠ wherever it appears, not only at
+  one column, or it would have walked the reader straight past this row.
+- **"Checked against" now names what was checked.** It held `multiple sources`,
+  which tells an edit house that somebody checked but not what they checked, and
+  cannot be audited or acted on. `TelopEntry.checked_against` carries the hosts;
+  `source_note` stays what it always was — the single credit that goes on air.
+- **Backchannel is not a caption order.** `Mhm`, `Yeah`, `うん` were being
+  ordered as quote-follows. No director orders a caption for a listening noise,
+  and a sheet full of them reads as a transcript dump. The filter is deliberately
+  narrow — a listed token and nothing else — because dropping something a
+  speaker actually said is the worse failure.
+
+Also fixed: an English sheet was joining two English remarks with 「／」. The
+separator now comes from `lang.join_notes`.
+
+What was NOT done, and why: the same reviewer asked for production metadata
+(episode, edit version, frame rate, approval status), hyperlinked sources and a
+separate evidence appendix. Those are right for a product; they are not what was
+broken. The chain of custody was.
