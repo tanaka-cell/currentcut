@@ -8,7 +8,7 @@ reading the whole tree.
 | Service | Where | SDK |
 |---|---|---|
 | Gemini — video understanding, classification, claim extraction, evidence comparison, caption drafting | `app/clients/gemini_client.py` | `google-genai` |
-| Google Agent Development Kit — one `LlmAgent` orchestrating six tools | `app/adk_pipeline.py` | `google-adk` |
+| Google Agent Development Kit — one `LlmAgent` orchestrating seven tools | `app/adk_pipeline.py` | `google-adk` |
 | Parallel Search API — live verification of claims that clear the confidentiality gate | `app/clients/parallel_client.py` | `parallel-web` |
 
 **No other AI service, model API or agent framework is invoked by the

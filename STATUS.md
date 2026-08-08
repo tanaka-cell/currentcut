@@ -24,7 +24,7 @@ See DECISIONS D-011/D-012.
 - [x] **Evidence comparator** (entity + attribute + value) replacing numeric overlap
 - [x] Scriptwriter — source-linked lines, only supporting sources may be cited
 - [x] Rough cut — FFmpeg EDL → MP4 + SRT + edl.json
-- [x] ADK orchestration (single LlmAgent + 6 tools; see honesty note below)
+- [x] ADK orchestration (single LlmAgent + 7 tools; see honesty note below)
 - [x] Demo assets — 4 fictional clips with Gemini TTS
 - [x] Acceptance tests: **7 passed** (mock mode, deterministic)
 
@@ -34,7 +34,7 @@ See DECISIONS D-011/D-012.
 | Gemini video analysis | ✅ | ✅ 4 clips, accurate JP transcripts |
 | Gemini text (labels / claims / evidence comparison) | ✅ | ✅ |
 | Gemini TTS (demo assets) | ✅ | ✅ |
-| ADK orchestration (gemini-2.5-pro) | ✅ | ✅ all 6 tools in order |
+| ADK orchestration (gemini-2.5-pro) | ✅ | ✅ all 7 tools in order |
 | Parallel Search (`parallel-web` SDK) | ✅ | ✅ safe queries only; off-record query blocked and logged |
 | Google Cloud TTS narration | — | not started |
 | Cloud Run deploy | ✅ | ✅ rev `currentcut-00009-hq2`, **https://currentcut-317408545495.asia-northeast1.run.app** — one-click demo runs the real pipeline in the container (Gemini → Parallel → FFmpeg), keys from Secret Manager |
@@ -247,8 +247,10 @@ but not the end of it.)
   app itself is reachable on `/`, `/docs` and every `/api` and `/projects` route
 
 ## Honesty notes
-- The ADK layer is **one `LlmAgent` calling six tools in a fixed order**, not
+- The ADK layer is **one `LlmAgent` calling seven tools in a fixed order**, not
   nine autonomous agents. Documentation and submission text must say so.
+  Seven is the count in `adk_pipeline.py`: analyze_footage, classify_confidentiality,
+  extract_claims, run_research, write_script, draft_telops, render_rough_cut.
 - Support judgments come from Gemini and are not infallible. The evaluation set
   now exists (`eval/`) and the measured answer is **0–1 false confirmations in
   34 labelled claims over three consecutive passes** — not a clean zero. It is
