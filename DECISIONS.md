@@ -657,3 +657,26 @@ What was NOT done, and why: the same reviewer asked for production metadata
 (episode, edit version, frame rate, approval status), hyperlinked sources and a
 separate evidence appendix. Those are right for a product; they are not what was
 broken. The chain of custody was.
+
+## 2026-08-08 — D-037: If you tell someone to go home, let them come back
+
+Found while trying to film the evidence screens legibly: there was no way to
+reopen a finished run. The only way to see a night's work was to sit and watch
+it finish. Close the tab and it was gone — every deliverable still sat behind
+its endpoint, but nothing in the page would show them again.
+
+For a product whose whole pitch is "hand over tonight's footage and go rest",
+that was the one journey it did not support. A director who actually took the
+advice had no morning to come back to.
+
+`?project=prj_…` reopens a run into the same results view. A bad id clears
+`projectId` rather than leaving the page pointed at something that will 404 on
+the next click, and it loads the director's own run rather than the bundled
+sample — the two look alike on screen and only one is theirs.
+
+It also unblocked the filming. The video recorder ignores device_scale_factor:
+a 4K recording turned out to be the same 1920x1080 page sitting in the corner of
+a 4K canvas, so cropping it bought nothing and the tables stayed at 12-14px
+where video wants 24. Screenshots do honour it, and reopening a finished run is
+what makes a screenshot of that run possible. Measured after: 45px in the egress
+log, 32px in the caption table, 35px in the script.

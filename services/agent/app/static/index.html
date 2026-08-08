@@ -429,6 +429,22 @@ $('#sample-btn').onclick = async () => {
   $('#results').scrollIntoView({behavior: 'smooth'});
 };
 
+// Come back to a run. The whole promise is that you hand the footage over and
+// leave, but until now the only way to see a night's work was to sit and watch
+// it finish — close the tab and it was gone. ?project=prj_… reopens one.
+(async () => {
+  const wanted = new URLSearchParams(location.search).get('project');
+  if (!wanted) return;
+  projectId = wanted;
+  try {
+    await loadResults(liveSrc(wanted));
+    $('#results').scrollIntoView({behavior: 'smooth'});
+  } catch (e) {
+    projectId = null;
+    console.error('could not reopen', wanted, e);
+  }
+})();
+
 function renderSteps(steps) {
   $('#steps').innerHTML = steps.map(s => `
     <li class="${s.state}">
