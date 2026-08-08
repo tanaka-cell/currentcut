@@ -28,6 +28,10 @@ THIS ORDER, each exactly once, passing the same project_id:
 7. render_rough_cut
 Never skip confidentiality before research. After the final tool, reply with
 one short line: DONE <number of script lines> lines.
+
+Call each tool by the bare name listed above. Do not qualify it with an
+application, package or namespace prefix — "analyze_footage", never
+"currentcut.analyze_footage".
 """
 
 
@@ -141,6 +145,32 @@ async def _run_adk_async(project_id: str) -> str:
     return final_text
 
 
+def _run_in_fixed_order(project_id: str, orchestrator_error: str) -> dict:
+    """Run the same seven steps, in the same order, without the agent.
+
+    Used when ADK orchestration itself fails. Recorded as its own run so the
+    trace says who actually did the work.
+    """
+    fallback = AgentRun(project_id=project_id, agent_name="fixed_order_fallback",
+                        provider="code", model_or_tool="pipeline.run_overnight",
+                        status="running")
+    store.put(project_id, "agent_runs", fallback)
+    report = pipeline.run_overnight(project_id)
+    fallback.status = "completed"
+    fallback.completed_at = now_iso()
+    fallback.output_summary = (
+        "ADK orchestration failed (" + orchestrator_error[:120] + "); the same "
+        "seven steps ran in the same fixed order from code")
+    store.put(project_id, "agent_runs", fallback)
+
+    from .models.schemas import Project
+    project = store.get(project_id, "project", Project, project_id)
+    if project:
+        project.status = "first_cut_ready"
+        store.put(project_id, "project", project)
+    return report
+
+
 def run_overnight_adk(project_id: str, video_paths: list[str] | None = None) -> dict:
     """ADK-driven overnight run, with honest fallback when no credentials."""
     config.ensure_dirs()
@@ -163,10 +193,17 @@ def run_overnight_adk(project_id: str, video_paths: list[str] | None = None) -> 
         run.status = "completed"
         run.output_summary = final[:200]
     except Exception as exc:
+        # The conductor failed, not the work. Gemini sometimes calls a tool by
+        # a qualified name ("currentcut.analyze_footage") that ADK will not
+        # resolve, and one bad name used to cost a director the whole night.
+        # The seven steps and their order are fixed either way, so run them
+        # from code — and leave both facts in the trace rather than papering
+        # over a failure the director is entitled to see.
         run.status = "failed"
         run.error = str(exc)[:300]
+        run.completed_at = now_iso()
         store.put(project_id, "agent_runs", run)
-        raise
+        return _run_in_fixed_order(project_id, str(exc))
     run.completed_at = now_iso()
     store.put(project_id, "agent_runs", run)
 

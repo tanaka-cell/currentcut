@@ -540,3 +540,48 @@ on the article — "the federal minimum wage is $7.25 an…" — leaving the rea
 waiting for a noun. Word-boundary trimming was already there; what was missing
 was dropping a word that only exists to introduce the next one. It now reads
 "…is $7.25…", which stops on the figure the line was written for.
+
+## 2026-08-08 — D-033: A failing conductor does not cost the director the night
+
+Filming the demo turned up a failure nobody had seen because it is
+intermittent: Gemini called a tool as `currentcut.analyze_footage` — the
+Runner's `app_name` glued onto the tool name — and ADK refused to resolve the
+qualified name. Every step stayed pending. The run ended before a single clip
+was read.
+
+That is the orchestrator failing, not the work. It would have happened to a
+judge pressing the button, and there is nothing to see when it does.
+
+Two layers, in that order:
+
+- The agent is now told plainly which name shape ADK rejects, with the exact
+  wrong string in the instruction. This is the fix.
+- If the run fails anyway, the same seven steps run in the same fixed order
+  from code. This is the net.
+
+The fallback is honest because the product's claim survives it: the order was
+never the agent's to choose. What changes is who calls the steps, and the trace
+says so — `adk_orchestrator` stays in the record as failed, with its error, and
+`fixed_order_fallback` appears beside it as the run that finished the work.
+Falling back quietly would have turned a real failure into a clean-looking run,
+which is the opposite of what this project is for.
+
+## 2026-08-08 — D-034: The order sheet has to survive being printed
+
+The caption order sheet is the deliverable a director emails to the edit house,
+and it had never been looked at on paper. It printed across six pages, split by
+column band: `Checked against` came out on a sheet of its own, a column of
+verdicts with nothing to say which caption each one belonged to. The one column
+CurrentCut adds was the one the printer threw away.
+
+Fit-to-width, landscape, rows running on as far as they need. Six pages to two.
+
+Two more defects were visible once the page could be read at all:
+
+- Row height was computed from the caption's line count alone, so the rows with
+  long notes were crushed and overlapped their neighbours. Those are exactly
+  the rows that carry a reason to check something — the rows this sheet exists
+  for. Height now follows the tallest wrapped cell across every wrapping
+  column, and `Checked against` wraps too instead of spilling sideways.
+- The programme name printed as "Programme: The corr", running into the air
+  date. The header cells are merged now.

@@ -13,8 +13,10 @@ mapping below therefore describes a repeating *block*, not a set of columns.
 """
 from __future__ import annotations
 
+import math
 import re
 import shutil
+import unicodedata
 from pathlib import Path
 
 from pydantic import BaseModel, Field
@@ -275,6 +277,24 @@ def _first_tc_ref(mapping: SheetMapping) -> tuple[str, int]:
     return (cell.column, mapping.first_data_row + cell.row_offset)
 
 
+# The columns whose text wraps, and so decide how tall a row has to be.
+_WRAPPING_COLUMNS = (5, 6, 7, 8)
+
+
+def _display_width(text: str) -> int:
+    """Columns a string occupies on screen, counting CJK glyphs as two."""
+    return sum(2 if unicodedata.east_asian_width(ch) in "WF" else 1 for ch in text)
+
+
+def _wrapped_lines(text: str, column_width: float) -> int:
+    """Lines `text` takes in a wrapped cell of this width."""
+    if not text:
+        return 1
+    usable = max(1.0, column_width - 1)  # the cell keeps a little padding
+    return sum(max(1, math.ceil(_display_width(para) / usable))
+               for para in str(text).split("\n"))
+
+
 def write_manuscript(entries: list[TelopEntry], out_path: str | Path,
                      title: str = "", air_date: str = "",
                      language: str = lang.JA) -> Path:
@@ -294,6 +314,7 @@ def write_manuscript(entries: list[TelopEntry], out_path: str | Path,
     from openpyxl import Workbook
     from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
     from openpyxl.utils import get_column_letter
+    from openpyxl.worksheet.properties import PageSetupProperties
 
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -311,10 +332,14 @@ def write_manuscript(entries: list[TelopEntry], out_path: str | Path,
     ws["A1"].font = Font(size=14, bold=True)
     programme = lang.sheet(lang.SHEET_PROGRAMME, language)
     air = lang.sheet(lang.SHEET_AIR_DATE, language)
+    # Each of these needs room to be read: the programme name ran into the air
+    # date and printed as "Programme: The corr".
     ws["A2"] = f"{programme}: {title}" if title else f"{programme}:"
-    ws["C2"] = f"{air}: {air_date}" if air_date else f"{air}:"
-    ws["E2"] = lang.sheet(lang.SHEET_WARNING, language)
-    ws["E2"].font = Font(size=9, color="8A5A12")
+    ws.merge_cells("A2:D2")
+    ws["E2"] = f"{air}: {air_date}" if air_date else f"{air}:"
+    ws["G2"] = lang.sheet(lang.SHEET_WARNING, language)
+    ws.merge_cells("G2:H2")
+    ws["G2"].font = Font(size=9, color="8A5A12")
 
     header_row = 4
     thin = Side(style="thin", color="D0CCC2")
@@ -345,17 +370,35 @@ def write_manuscript(entries: list[TelopEntry], out_path: str | Path,
             cell = ws.cell(row=row, column=index, value=value)
             cell.border = border
             cell.alignment = Alignment(
-                wrap_text=index in (5, 6, 8), vertical="center",
+                wrap_text=index in _WRAPPING_COLUMNS, vertical="center",
                 horizontal="center" if index in (1, 2, 3, 7) else "left")
         # Draw the eye to the rows that still need a decision.
         if entry.evidence_status.value == "CONFLICTING":
             ws.cell(row=row, column=7).font = Font(bold=True, color="96311F")
         elif entry.evidence_status.value == "UNVERIFIED":
             ws.cell(row=row, column=7).font = Font(color="8A5A12")
-        ws.row_dimensions[row].height = 30 if len(entry.text_lines) > 1 else 20
+
+        # Height follows the tallest wrapped cell, not the caption alone. The
+        # rows carrying a reason to check — the ones this sheet exists for —
+        # have the longest notes, so sizing by the caption hid exactly them.
+        tallest = max(_wrapped_lines(str(values[column - 1] or ""),
+                                     columns[column - 1][1])
+                      for column in _WRAPPING_COLUMNS)
+        ws.row_dimensions[row].height = max(20, tallest * 14.5 + 5)
 
     ws.freeze_panes = ws.cell(row=header_row + 1, column=1)
     ws.print_title_rows = f"{header_row}:{header_row}"
+
+    # A caption and the evidence behind it have to land on the same printed
+    # page. At eight columns the default portrait width breaks the sheet into
+    # column bands, and `Checked against` prints on a page of its own — a list
+    # of verdicts with nothing to say which caption each one belongs to. Fit
+    # the width to one page and let the rows run on for as many as they need.
+    ws.page_setup.orientation = "landscape"
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 0
+    ws.sheet_properties.pageSetUpPr = PageSetupProperties(fitToPage=True)
+
     wb.save(out_path)
     return out_path
 
