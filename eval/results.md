@@ -4,10 +4,10 @@
 
 | outcome | count |
 |---|---:|
-| false confirmations | **1** |
+| false confirmations | **0** |
 | missed confirmations | 7 |
-| wrong source credited | 1 |
-| correct | 25 |
+| wrong source credited | 0 |
+| correct | 27 |
 
 A false confirmation is the one that reaches air: the system called a
 figure confirmed when the retrieved pages do not establish it.
@@ -33,7 +33,7 @@ figure confirmed when the retrieved pages do not establish it.
 | 店内飲食消費税率は10% | jp_tax_10 | ok | MULTIPLE_SOURCES_CONFIRMED | — | — |
 | 価格は1980円です。 | fictional_product | ok | UNVERIFIED | — | — |
 | お持ち帰り消費税率は8% | jp_tax_8 | ok | MULTIPLE_SOURCES_CONFIRMED | — | — |
-| The federal minimum wage of $7.25 an hour has no | us_public_record | wrong source credited | MULTIPLE_SOURCES_CONFIRMED | www.bls.gov | www.dol.gov |
+| The federal minimum wage of $7.25 an hour has no | us_public_record | ok | MULTIPLE_SOURCES_CONFIRMED | www.dol.gov | www.dol.gov |
 | お持ち帰りの消費税率は8% | jp_tax_8 | ok | MULTIPLE_SOURCES_CONFIRMED | — | — |
 | 店内で召し上がりの消費税率は10% | jp_tax_10 | ok | MULTIPLE_SOURCES_CONFIRMED | — | — |
 | 現在全国に80店舗で販売しています。 | fictional_product | ok | UNVERIFIED | — | — |
@@ -43,7 +43,7 @@ figure confirmed when the retrieved pages do not establish it.
 | コンビニエンスストアは全国に約5万6000店ある | jp_store_count | missed | UNVERIFIED | — | — |
 | コンビニエンスストアの店舗数は全国に約5万6000店 | jp_store_count | missed | UNVERIFIED | — | — |
 | 店内で召し上がりの消費税は10% | jp_tax_10 | ok | MULTIPLE_SOURCES_CONFIRMED | — | — |
-| AIスマート弁当箱は中身の栄養バランスを自動で記録してくれる | fictional_product | FALSE CONFIRMATION | MULTIPLE_SOURCES_CONFIRMED | pubmed.ncbi.nlm.nih.gov | — |
+| AIスマート弁当箱は中身の栄養バランスを自動で記録してくれる | fictional_product | ok | UNVERIFIED | — | — |
 | convenience stores nationwide: Nearly all conven | us_generalisation | ok | UNVERIFIED | — | — |
 | AIスマート弁当箱は全国に80店舗で販売されている | fictional_product | ok | UNVERIFIED | — | — |
 | AIスマート弁当箱は現在全国に80店舗で販売されている | fictional_product | ok | UNVERIFIED | — | — |

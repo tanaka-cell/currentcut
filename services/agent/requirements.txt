@@ -7,8 +7,14 @@
 # recorded demo, with no way to tell what changed.
 #
 # Raising a pin is a deliberate act: change the number, run the tests, and run
-# `pip-audit -r requirements.txt` in a throwaway virtualenv (never in this one —
+# `pip-audit -r requirements.txt` in a throwaway virtualenv (never in this one:
 # a checking tool has no business in the environment it checks).
+#
+# ASCII only, deliberately. Both pip and pip-audit read this file with the
+# machine's own locale encoding when it has no byte-order mark, so one em dash
+# in a comment makes it unreadable on a Japanese Windows install (cp932) while
+# working perfectly in the Linux container. A comment is not worth a file that
+# only parses in some countries.
 fastapi==0.141.1
 uvicorn[standard]==0.52.1
 pydantic==2.13.4
@@ -22,7 +28,7 @@ openpyxl==3.1.5
 python-multipart==0.0.32
 pillow==12.3.0
 # Reading a programme's own order form: .docx templates and PDF/paper scans.
-# Imported lazily in house_style.py and telop_form.py — absent from a clean
-# checkout, those features failed at import rather than at install.
+# Imported lazily in house_style.py and telop_form.py, so on a clean checkout
+# those features failed at import rather than at install.
 pymupdf==1.28.2
 python-docx==1.2.0

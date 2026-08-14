@@ -7,6 +7,8 @@ that a later rewrite of the guard is still held to the same behaviour.
 """
 from __future__ import annotations
 
+from pathlib import Path
+
 import openpyxl
 import pytest
 from fastapi.testclient import TestClient
@@ -228,6 +230,18 @@ def test_footage_left_behind_is_swept(tmp_path, monkeypatch):
 
 
 # --- media tools that never come back -----------------------------------------
+
+def test_the_requirements_file_is_readable_in_every_country():
+    """pip and pip-audit both read a requirements file with the machine's own
+    locale encoding when it carries no byte-order mark. One em dash in a comment
+    made this file unparseable on a Japanese Windows install (cp932) while the
+    Linux container never noticed — `pip install -r` failed on the author's own
+    machine. Kept ASCII rather than fixed by a mark, because a requirements file
+    reaches strangers' machines and their locale is not ours to guess."""
+    raw = (Path(__file__).resolve().parents[1] / "requirements.txt").read_bytes()
+    offending = [i for i, b in enumerate(raw) if b > 127]
+    assert offending == [], f"non-ASCII at byte {offending[0]}"
+
 
 def test_every_media_call_says_how_long_it_will_wait():
     """One stuck ffmpeg wedges the only worker, and nothing in the log says why."""
