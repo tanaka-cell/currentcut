@@ -88,9 +88,10 @@ store afterwards, and the deletion is read back rather than assumed.
 - **The rate limit counts `X-Forwarded-For`,** which a caller controls on a naked
   deployment. Behind Cloud Run it is set by Google's front end. It is a speed
   bump, and it is only claimed to be one.
-- **`pip-audit` has not been run against the pinned versions.** One command, in a
-  throwaway virtualenv:
-  `pip-audit -r services/agent/requirements.txt`.
+- **Dependencies were clean when pinned.** `pip-audit -r
+  services/agent/requirements.txt`, run 2026-08-15 in a throwaway virtualenv:
+  no known vulnerabilities. That is a statement about one day. Re-run it when a
+  pin moves, and run it somewhere other than the environment being checked.
 
 ## Reporting something
 
