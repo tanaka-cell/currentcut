@@ -26,7 +26,7 @@ def probe_duration(path: Path) -> float:
     out = subprocess.run(
         [config.FFPROBE, "-v", "error", "-show_entries", "format=duration",
          "-of", "json", str(path)],
-        capture_output=True, text=True, check=True,
+        capture_output=True, text=True, check=True, timeout=config.FFPROBE_TIMEOUT_SECONDS,
     )
     return float(json.loads(out.stdout)["format"]["duration"])
 
@@ -96,7 +96,7 @@ def _keyframe_times(path: Path) -> list[float]:
     out = subprocess.run(
         [config.FFPROBE, "-v", "error", "-select_streams", "v", "-skip_frame", "nokey",
          "-show_entries", "frame=pts_time", "-of", "csv=p=0", str(path)],
-        capture_output=True, text=True, check=False,
+        capture_output=True, text=True, check=False, timeout=config.FFPROBE_TIMEOUT_SECONDS,
     )
     times = []
     for row in out.stdout.splitlines():
@@ -149,7 +149,7 @@ def _extract_chunk(src: Path, start: float, end: float, dest: Path) -> Path:
         [config.FFMPEG, "-y", "-loglevel", "error", "-ss", f"{start:.6f}",
          "-to", f"{end:.6f}", "-i", str(src), "-c", "copy",
          "-avoid_negative_ts", "make_zero", str(dest)],
-        check=True, capture_output=True,
+        check=True, capture_output=True, timeout=config.FFMPEG_TIMEOUT_SECONDS,
     )
     return dest
 

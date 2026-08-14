@@ -247,7 +247,7 @@ def _cut_clip(src: Path, line: ScriptLine, dst: Path, index: int = 0) -> None:
          "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
          "-c:a", "aac", "-ar", "48000", "-ac", "2",
          str(dst)],
-        check=True,
+        check=True, timeout=config.FFMPEG_TIMEOUT_SECONDS,
     )
 
 
@@ -258,7 +258,7 @@ def _concat(clips: list[Path], dst: Path) -> None:
     subprocess.run(
         [config.FFMPEG, "-y", "-loglevel", "error", "-f", "concat", "-safe", "0",
          "-i", str(list_file), "-c", "copy", str(dst)],
-        check=True,
+        check=True, timeout=config.FFMPEG_TIMEOUT_SECONDS,
     )
     list_file.unlink(missing_ok=True)
 

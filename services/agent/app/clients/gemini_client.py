@@ -7,6 +7,7 @@ pipeline run with zero credentials; provider is reported honestly either way.
 from __future__ import annotations
 
 import json
+import logging
 import time
 from pathlib import Path
 
@@ -90,30 +91,60 @@ class GeminiClient:
 
         client = self._real()
         uploaded = client.files.upload(file=str(video_path))
-        while uploaded.state and uploaded.state.name == "PROCESSING":
-            time.sleep(3)
-            uploaded = client.files.get(name=uploaded.name)
-        if uploaded.state and uploaded.state.name == "FAILED":
-            raise RuntimeError(f"Gemini file processing failed for {video_path.name}")
-        response = client.models.generate_content(
-            model=config.GEMINI_VIDEO_MODEL,
-            contents=[uploaded, prompt],
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=VideoAnalysis,
-                # Rushes are logged by what is said, not by pixel detail: the
-                # transcript drives clearance, claims and timecodes. At default
-                # resolution a file over an hour does not fit the context window
-                # at all — the length a factual shoot actually produces. Low
-                # resolution is what makes a real tape length possible, and it
-                # costs a third of the tokens.
-                media_resolution=types.MediaResolution.MEDIA_RESOLUTION_LOW,
-            ),
-        )
+        try:
+            while uploaded.state and uploaded.state.name == "PROCESSING":
+                time.sleep(3)
+                uploaded = client.files.get(name=uploaded.name)
+            if uploaded.state and uploaded.state.name == "FAILED":
+                raise RuntimeError(f"Gemini file processing failed for {video_path.name}")
+            response = client.models.generate_content(
+                model=config.GEMINI_VIDEO_MODEL,
+                contents=[uploaded, prompt],
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=VideoAnalysis,
+                    # Rushes are logged by what is said, not by pixel detail: the
+                    # transcript drives clearance, claims and timecodes. At default
+                    # resolution a file over an hour does not fit the context window
+                    # at all — the length a factual shoot actually produces. Low
+                    # resolution is what makes a real tape length possible, and it
+                    # costs a third of the tokens.
+                    media_resolution=types.MediaResolution.MEDIA_RESOLUTION_LOW,
+                ),
+            )
+        finally:
+            # Somebody else's rushes, sitting on the provider's file store. The
+            # provider expires them on its own schedule, which is the provider's
+            # promise and not ours — and a product whose subject is what leaves
+            # the building deletes its own copy, whether the analysis returned
+            # or threw.
+            self._forget_uploaded(client, uploaded)
         parsed = response.parsed
         if isinstance(parsed, VideoAnalysis):
             return parsed
         return VideoAnalysis.model_validate(json.loads(response.text))
+
+    @staticmethod
+    def _forget_uploaded(client, uploaded) -> None:
+        """Delete the provider-side copy, then look to see that it is gone.
+
+        "Deleted" is a claim about something that already happened, and the call
+        returning without complaint is not evidence that it did. Reading the file
+        back is the difference between having deleted it and having asked.
+        """
+        name = getattr(uploaded, "name", None)
+        if not name:
+            return
+        try:
+            client.files.delete(name=name)
+        except Exception:
+            logging.warning("could not delete %s from the provider's file store", name)
+            return
+        try:
+            client.files.get(name=name)
+        except Exception:
+            return  # gone, which is what we asked for
+        logging.warning("%s is still readable at the provider after deletion", name)
 
     def _mock_analysis(self, video_path: Path) -> VideoAnalysis:
         sidecar = video_path.with_suffix(video_path.suffix + ".analysis.json")

@@ -1,6 +1,8 @@
 """CurrentCut agent service — FastAPI."""
 from __future__ import annotations
 
+import logging
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
@@ -8,20 +10,47 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import adk_pipeline, config, demo, lang, pipeline, upload
+from . import adk_pipeline, config, demo, guard, lang, pipeline, retention, upload
 from .agents import confidentiality, house_style, telop_form, telop_sheet
 from .models.schemas import (
     AgentRun, Asset, Claim, EgressLog, Project, RESTRICTED_LABELS, ResearchResult,
     ScriptLine, Segment, TelopEntry,
 )
-from .storage import store
+from .storage import UnsafeIdError, safe_id, store
 
-app = FastAPI(title="CurrentCut", version="0.2.0")
+
+@asynccontextmanager
+async def _lifespan(_app: FastAPI):
+    """A restart is the one moment a service is certain to reach, so anything
+    that has to happen eventually happens here."""
+    config.ensure_dirs()
+    try:
+        retention.sweep()
+    except Exception:
+        logging.exception("retention sweep failed at startup")
+    yield
+
+
+# The interactive API map is a menu of every route and body shape on a service
+# that has no login, so it is off unless a deployment asks for it.
+app = FastAPI(
+    title="CurrentCut", version="0.2.0", lifespan=_lifespan,
+    docs_url="/docs" if guard.EXPOSE_API_DOCS else None,
+    redoc_url="/redoc" if guard.EXPOSE_API_DOCS else None,
+    openapi_url="/openapi.json" if guard.EXPOSE_API_DOCS else None,
+)
+app.middleware("http")(guard.guard_request)
 
 _STATIC = Path(__file__).resolve().parent / "static"
 
 
 app.mount("/static", StaticFiles(directory=str(_STATIC)), name="static")
+
+
+def _project_dir(project_id: str) -> Path:
+    """Output for one project. Goes through the same id check as the store, so
+    a caller cannot name a directory anywhere else on the disk."""
+    return config.OUTPUT_DIR / safe_id(project_id)
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -57,8 +86,11 @@ def demo_start(shoot: str = ""):
     """
     try:
         return {"project_id": demo.start(shoot)}
-    except Exception as exc:
-        raise HTTPException(500, str(exc))
+    except Exception:
+        # The exception text is a filesystem path or a provider's error body as
+        # often as it is anything a visitor could act on. It goes to the log.
+        logging.exception("demo start failed")
+        raise HTTPException(500, "the demo could not be started — please try again")
 
 
 @app.get("/api/demo/shoots")
@@ -71,6 +103,10 @@ def demo_shoots():
 
 @app.get("/api/demo/status/{project_id}")
 def demo_status(project_id: str):
+    try:
+        safe_id(project_id)
+    except UnsafeIdError:
+        raise HTTPException(404, "project not found")
     return demo.status(project_id)
 
 
@@ -93,6 +129,10 @@ async def upload_start(files: list[UploadFile] = File(...), title: str = Form(""
 
 @app.get("/media/{project_id}/rough_cut.mp4")
 def rough_cut(project_id: str):
+    try:
+        safe_id(project_id)
+    except UnsafeIdError:
+        raise HTTPException(404, "rough cut not rendered yet")
     path = demo.rough_cut_path(project_id)
     if path is None:
         raise HTTPException(404, "rough cut not rendered yet")
@@ -122,7 +162,23 @@ def healthz():
 
 @app.post("/projects")
 def create_project(body: CreateProject):
-    project = Project(**body.model_dump())
+    """Open a project.
+
+    Every field here is written to the disk under a name the caller does not
+    choose, so the id is safe; the text is not. Unbounded, a title alone was
+    enough to spend the instance's memory — on Cloud Run the data directory is
+    /tmp, which is RAM — from an endpoint that needs no credentials.
+    """
+    fields = body.model_dump()
+    fields["title"] = guard.clip(fields["title"], guard.MAX_TITLE_CHARS, "title")
+    fields["tone"] = guard.clip(fields["tone"], guard.MAX_TITLE_CHARS, "tone")
+    fields["air_date"] = guard.clip(fields["air_date"], 40, "air_date")
+    rules = fields.get("editorial_rules") or []
+    if len(rules) > guard.MAX_RULES:
+        raise HTTPException(400, f"up to {guard.MAX_RULES} editorial rules")
+    fields["editorial_rules"] = [
+        guard.clip(r, guard.MAX_RULE_CHARS, "editorial rule") for r in rules]
+    project = Project(**fields)
     store.put(project.id, "project", project)
     return project
 
@@ -188,7 +244,7 @@ def download_manuscript(project_id: str):
         raise HTTPException(404, "no telops drafted yet")
     language = _shoot_language(project_id)
     path = telop_sheet.write_manuscript(
-        entries, config.OUTPUT_DIR / project_id / "telop_manuscript.xlsx",
+        entries, _project_dir(project_id) / "telop_manuscript.xlsx",
         title=project.title, air_date=project.air_date, language=language)
     return FileResponse(
         path, filename=lang.sheet(lang.SHEET_FILENAME, language),
@@ -201,7 +257,7 @@ def get_telops_csv(project_id: str):
     entries = store.list(project_id, "telops", TelopEntry)
     if not entries:
         raise HTTPException(404, "no telops drafted yet")
-    path = telop_sheet.write_csv(entries, config.OUTPUT_DIR / project_id / "telops.csv",
+    path = telop_sheet.write_csv(entries, _project_dir(project_id) / "telops.csv",
                                  language=_shoot_language(project_id))
     return FileResponse(path, media_type="text/csv", filename="telop_manuscript.csv")
 
@@ -221,9 +277,9 @@ async def upload_telop_template(project_id: str, file: UploadFile = File(...)):
     _require_project(project_id)
     name = (file.filename or "").lower()
     suffix = Path(name).suffix
-    project_dir = config.OUTPUT_DIR / project_id
+    project_dir = _project_dir(project_id)
     project_dir.mkdir(parents=True, exist_ok=True)
-    body = await file.read()
+    body = await guard.read_capped(file, guard.MAX_TEMPLATE_BYTES, "the form")
 
     if suffix in (".xlsx", ".xlsm"):
         template = project_dir / f"telop_template{suffix}"
@@ -265,7 +321,7 @@ async def upload_telop_template(project_id: str, file: UploadFile = File(...)):
 def download_filled_sheet(project_id: str):
     """The programme's own sheet, filled in."""
     _require_project(project_id)
-    project_dir = config.OUTPUT_DIR / project_id
+    project_dir = _project_dir(project_id)
     template = project_dir / "telop_template.xlsx"
     mapping_file = project_dir / "telop_mapping.json"
     if not template.exists() or not mapping_file.exists():
@@ -299,7 +355,7 @@ def set_text_area(project_id: str, body: TextAreaOverride):
         raise HTTPException(400, "box must be [ymin, xmin, ymax, xmax] within 0-1000")
     area = telop_form.TextArea(box=body.box, reading_direction=body.reading_direction,
                                confirmed_by_director=True, note="set by the director")
-    (config.OUTPUT_DIR / project_id / "telop_area.json").write_text(
+    (_project_dir(project_id) / "telop_area.json").write_text(
         area.model_dump_json(indent=1), encoding="utf-8")
     return {"text_area": area.box, "confirmed": True}
 
@@ -308,7 +364,7 @@ def set_text_area(project_id: str, body: TextAreaOverride):
 def render_telop_forms(project_id: str):
     """One filled sheet per telop: a PDF to print and JPEGs to send."""
     _require_project(project_id)
-    project_dir = config.OUTPUT_DIR / project_id
+    project_dir = _project_dir(project_id)
     forms = [p for p in project_dir.glob("telop_form.*")]
     area_file = project_dir / "telop_area.json"
     if not forms or not area_file.exists():
@@ -328,7 +384,7 @@ def render_telop_forms(project_id: str):
 @app.get("/projects/{project_id}/telop-sheets.pdf")
 def download_telop_pdf(project_id: str):
     _require_project(project_id)
-    pdf = config.OUTPUT_DIR / project_id / "telop_sheets" / "telop_sheets.pdf"
+    pdf = _project_dir(project_id) / "telop_sheets" / "telop_sheets.pdf"
     if not pdf.exists():
         raise HTTPException(404, "render the sheets first")
     return FileResponse(pdf, media_type="application/pdf", filename="telop_sheets.pdf")
@@ -345,16 +401,19 @@ async def learn_house_style(project_id: str, files: list[UploadFile] = File(...)
     never sent to external search.
     """
     _require_project(project_id)
-    upload_dir = config.OUTPUT_DIR / project_id / "past_scripts"
+    upload_dir = _project_dir(project_id) / "past_scripts"
     upload_dir.mkdir(parents=True, exist_ok=True)
 
     saved = []
     for item in files[:house_style.MAX_SCRIPTS]:
-        name = Path(item.filename or "").name
+        # The name a caller sends is a name, not a path: "../../x.txt" is a
+        # filename with slashes in it, and the same trick with backslashes is
+        # invisible on a machine that reads them as separators.
+        name = guard.safe_filename(item.filename)
         if not name.lower().endswith(house_style.SUPPORTED):
             continue
         path = upload_dir / name
-        path.write_bytes(await item.read())
+        path.write_bytes(await guard.read_capped(item, guard.MAX_SCRIPT_BYTES, name))
         saved.append(path)
     if not saved:
         raise HTTPException(400, f"upload past scripts as {', '.join(house_style.SUPPORTED)}")
@@ -403,6 +462,9 @@ def confirm_release(project_id: str, segment_id: str, body: ReleaseBody):
     _require_project(project_id)
     if not body.confirmed_by.strip():
         raise HTTPException(400, "confirmed_by is required: a person has to own this decision")
+    guard.clip(body.confirmed_by, guard.MAX_NAME_CHARS, "confirmed_by")
+    if len(body.release_indexes) > 500:
+        raise HTTPException(400, "too many indexes for one segment")
     segment = store.get(project_id, "segments", Segment, segment_id)
     if segment is None:
         raise HTTPException(404, "no such segment")
@@ -450,7 +512,16 @@ def get_agent_trace(project_id: str):
 
 
 def _require_project(project_id: str) -> Project:
-    project = store.get(project_id, "project", Project, project_id)
+    """The gate every /projects/{id}/… route passes through.
+
+    A malformed id is answered "not found" rather than "that is not an id":
+    telling a caller which of their guesses was the wrong *shape* is telling
+    them how to make the right one.
+    """
+    try:
+        project = store.get(safe_id(project_id), "project", Project, project_id)
+    except UnsafeIdError:
+        raise HTTPException(404, "project not found")
     if project is None:
         raise HTTPException(404, "project not found")
     return project

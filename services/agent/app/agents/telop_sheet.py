@@ -258,7 +258,7 @@ def fill_sheet(template_path: str | Path, mapping: SheetMapping,
                 continue
             ref = _anchor(ws, cell.column, base_row + cell.row_offset)
             target = ws[ref]
-            target.value = value
+            target.value = as_text(value)
             if field in ("text", "text_target") and "\n" in str(value):
                 target.alignment = Alignment(wrap_text=True, vertical="center")
         written += 1
@@ -292,6 +292,27 @@ def _checked_cell(entry, evidence: dict) -> str:
     verdict = evidence.get(entry.evidence_status.value, entry.evidence_status.value)
     hosts = [h for h in (entry.checked_against or []) if h]
     return f"{verdict}\n{', '.join(hosts)}" if hosts else verdict
+
+
+_FORMULA_STARTERS = ("=", "+", "-", "@", "\t", "\r")
+
+
+def as_text(value):
+    """A cell value a spreadsheet will read as text and nothing else.
+
+    Every word on this sheet came from somewhere else — a speaker on camera, a
+    page the research step retrieved, a hostname. Excel and Numbers read a cell
+    beginning with = + - @ as a formula, so a caption starting with one is a
+    program that runs on the edit house's machine the moment they open the file
+    we sent them. This is the last place to stop it, because it is the last
+    place the text is still ours.
+
+    A leading apostrophe is the spreadsheet's own way of saying "this is text":
+    the cell still displays exactly what was said, and the formula never forms.
+    """
+    if isinstance(value, str) and value.lstrip(" 　").startswith(_FORMULA_STARTERS):
+        return "'" + value
+    return value
 
 
 def _display_width(text: str) -> int:
@@ -380,7 +401,7 @@ def write_manuscript(entries: list[TelopEntry], out_path: str | Path,
             entry.caution,
         ]
         for index, value in enumerate(values, start=1):
-            cell = ws.cell(row=row, column=index, value=value)
+            cell = ws.cell(row=row, column=index, value=as_text(value))
             cell.border = border
             cell.alignment = Alignment(
                 wrap_text=index in _WRAPPING_COLUMNS, vertical="center",
@@ -431,8 +452,9 @@ def write_csv(entries: list[TelopEntry], out_path: str | Path,
         writer = csv.writer(f)
         writer.writerow([c[0] for c in columns])
         for e in entries:
-            writer.writerow([e.order, _tc(e.in_seconds), _tc(e.out_seconds),
-                             types.get(e.telop_type, e.telop_type),
-                             "\n".join(e.text_lines), e.source_note,
-                             _checked_cell(e, evidence), e.caution])
+            writer.writerow([as_text(v) for v in (
+                e.order, _tc(e.in_seconds), _tc(e.out_seconds),
+                types.get(e.telop_type, e.telop_type),
+                "\n".join(e.text_lines), e.source_note,
+                _checked_cell(e, evidence), e.caution)])
     return out_path

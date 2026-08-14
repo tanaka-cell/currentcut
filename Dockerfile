@@ -19,5 +19,14 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY services/agent/app ./app
 COPY demo-assets ./demo-assets
 
+# Run as somebody rather than as root. This container hands uploaded video to
+# ffmpeg, and ffmpeg should not be doing that with the privileges to rewrite the
+# image it is running in. /tmp holds the data and output directories (see ENV
+# above), so it is the only place this user needs to own.
+RUN useradd --system --create-home --uid 10001 currentcut \
+    && mkdir -p /tmp/currentcut/data /tmp/currentcut/output \
+    && chown -R currentcut:currentcut /tmp/currentcut /app
+USER currentcut
+
 EXPOSE 8080
 CMD exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080} --workers 1

@@ -244,7 +244,10 @@ but not the end of it.)
 - `--min-instances=1 --no-cpu-throttling` are required: the run continues on a
   worker thread after the starting request returns
 - `/healthz` is registered but returns Google's own 404 through the edge; the
-  app itself is reachable on `/`, `/docs` and every `/api` and `/projects` route
+  app itself is reachable on `/` and every `/api` and `/projects` route
+- `/docs`, `/redoc` and `/openapi.json` are off by default since the security
+  pass of 2026-08-15 — a menu of every route and body shape on a service with no
+  login. Set `CURRENTCUT_EXPOSE_API_DOCS=1` to bring them back for development
 
 ## Honesty notes
 - The ADK layer is **one `LlmAgent` calling seven tools in a fixed order**, not
@@ -261,3 +264,7 @@ but not the end of it.)
   [eval/measured.md](eval/measured.md).
 - Confidentiality enforcement is application-layer only. The media still exists
   in storage and Gemini processes all footage under Google's API terms.
+- Security posture — what the hosted instance protects, what a project id is,
+  and what is deliberately not defended — is written down in
+  [SECURITY.md](SECURITY.md). The hosted demo has no login by design; treat a
+  project URL as you would treat the file it opens.

@@ -150,6 +150,12 @@ GEMINI_MAX_CLIP_SECONDS = int(os.getenv("GEMINI_MAX_CLIP_SECONDS", "600"))
 
 FFMPEG = os.getenv("FFMPEG_BIN", "ffmpeg")
 FFPROBE = os.getenv("FFPROBE_BIN", "ffprobe")
+# How long either tool may take before we stop waiting. A media tool given a
+# file it cannot make sense of does not always fail — it can sit there, and a
+# service that runs one worker has then stopped serving anybody, with nothing in
+# the log to say why. Generous enough for a real encode of a long take.
+FFPROBE_TIMEOUT_SECONDS = int(os.getenv("CURRENTCUT_FFPROBE_TIMEOUT", "60"))
+FFMPEG_TIMEOUT_SECONDS = int(os.getenv("CURRENTCUT_FFMPEG_TIMEOUT", "900"))
 
 # Font for burned-in captions (needed for CJK text in FFmpeg drawtext).
 _default_font = "C:/Windows/Fonts/meiryo.ttc" if os.name == "nt" else \

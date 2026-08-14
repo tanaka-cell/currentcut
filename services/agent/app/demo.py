@@ -11,7 +11,7 @@ import threading
 import traceback
 from pathlib import Path
 
-from . import adk_pipeline, config, progress
+from . import adk_pipeline, config, progress, retention
 from .models.schemas import AgentRun, Project
 from .storage import store
 
@@ -77,6 +77,7 @@ def _launch(title: str, clips: list[str]) -> str:
 def start(shoot: str = "") -> str:
     """Run the bundled demo shoot."""
     config.ensure_dirs()
+    retention.sweep()
     shoot = shoot or config.DEFAULT_DEMO_SHOOT
     if shoot not in config.DEMO_SHOOTS:
         raise RuntimeError(f"unknown shoot {shoot!r}; known: {', '.join(config.DEMO_SHOOTS)}")
@@ -91,6 +92,9 @@ def start_uploaded(title: str, clips: list[str]) -> str:
     this trusts nothing about the content beyond that and runs the same
     pipeline the demo runs."""
     config.ensure_dirs()
+    # Tidying at the start of a run, rather than on a timer, means the sweep
+    # happens exactly when the disk is about to be used and needs no scheduler.
+    retention.sweep()
     if not clips:
         raise RuntimeError("no uploaded footage to run")
     return _launch(title or "Uploaded footage (Overnight Run)", clips)
