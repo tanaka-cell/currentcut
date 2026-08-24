@@ -16,7 +16,7 @@
 # working perfectly in the Linux container. A comment is not worth a file that
 # only parses in some countries.
 fastapi==0.141.1
-uvicorn[standard]==0.52.1
+uvicorn[standard]==0.52.4
 pydantic==2.13.4
 python-dotenv==1.2.2
 google-genai==2.16.0
