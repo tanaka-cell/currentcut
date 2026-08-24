@@ -7,6 +7,13 @@
 # continues on a worker thread after the HTTP request that started it returns,
 # and a throttled instance would freeze it mid-run.
 #
+# --max-instances is the outer bound on both the bill and the pipeline. The run
+# budget in app/budget.py counts runs inside one process, so with no cap on
+# processes it is a limit multiplied by however many instances Cloud Run decides
+# to start - and the default is a hundred, each with two CPUs and no throttling.
+# Four is far more than a demo needs (normal use never leaves the first) and
+# turns "how much can this cost" into a number.
+#
 # Memory is the footage budget, not just the program's. Cloud Run's filesystem
 # lives in memory, so every uploaded clip, every chunk being read and every
 # rendered piece of the cut is counted against this number. 4Gi holds the
@@ -37,6 +44,7 @@ echo
   --cpu=2 \
   --timeout=900 \
   --min-instances=1 \
+  --max-instances=4 \
   --no-cpu-throttling \
   --set-secrets=GEMINI_API_KEY=currentcut-gemini-key:latest,PARALLEL_API_KEY=currentcut-parallel-key:latest
 
