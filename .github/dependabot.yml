@@ -1,0 +1,31 @@
+# The day it was published is the day it was safest.
+#
+# Everything here was pinned on 2026-08-15 and checked with pip-audit, which
+# found nothing. That is a statement about that day: the libraries do not change
+# but what is known about them does, and nobody is going to notice a new advisory
+# by reading requirements.txt on a Tuesday.
+#
+# So GitHub watches instead, and opens a pull request when one of these needs
+# raising. Raising a pin is still a deliberate act - read the advisory, run the
+# tests, and re-run the 34-claim evaluation set if the change is anywhere near
+# the model clients, because a dependency bump has no business quietly changing
+# what the comparator confirms.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /services/agent
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps"
+
+  # The base image carries ffmpeg and the CJK fonts, and gets its own security
+  # updates on somebody else's schedule.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "deps"

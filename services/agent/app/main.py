@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import adk_pipeline, config, demo, guard, lang, pipeline, retention, upload
+from . import adk_pipeline, budget, config, demo, guard, lang, pipeline, retention, upload
 from .agents import confidentiality, house_style, telop_form, telop_sheet
 from .models.schemas import (
     AgentRun, Asset, Claim, EgressLog, Project, RESTRICTED_LABELS, ResearchResult,
@@ -72,6 +72,8 @@ def limits():
         "max_total_mb": config.UPLOAD_MAX_TOTAL_MB,
         "max_total_minutes": config.UPLOAD_MAX_TOTAL_MINUTES,
         "runs_per_day": config.UPLOAD_RUNS_PER_DAY,
+        "demo_runs_per_day": budget.DEMO_RUNS_PER_DAY,
+        "max_concurrent_runs": budget.MAX_CONCURRENT_RUNS,
         "chunk_minutes": config.ANALYSIS_CHUNK_MINUTES,
         "max_concurrency": config.MAX_CONCURRENCY,
     }
@@ -86,6 +88,11 @@ def demo_start(shoot: str = ""):
     """
     try:
         return {"project_id": demo.start(shoot)}
+    except HTTPException:
+        # "the budget is spent" and "three are already running" are answers a
+        # visitor can act on. Swallowing them into a 500 would tell them the
+        # demo is broken when it is merely busy.
+        raise
     except Exception:
         # The exception text is a filesystem path or a provider's error body as
         # often as it is anything a visitor could act on. It goes to the log.

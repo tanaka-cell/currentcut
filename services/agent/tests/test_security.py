@@ -7,6 +7,7 @@ that a later rewrite of the guard is still held to the same behaviour.
 """
 from __future__ import annotations
 
+import time
 from pathlib import Path
 
 import openpyxl
@@ -252,3 +253,64 @@ def test_every_media_call_says_how_long_it_will_wait():
         runs = source.count("subprocess.run(")
         timeouts = source.count("timeout=config.FF")
         assert runs == timeouts, (module.__name__, runs, timeouts)
+
+
+# --- what a day of this instance may cost -------------------------------------
+#
+# Found on 2026-08-24 by checking the service against a published checklist for
+# tools people publish. The upload route had a daily budget from the day it was
+# written; the demo button beside it, which runs the same pipeline over nine
+# clips, had none, and the rate limiter would let a script start hundreds of
+# runs a minute on our keys.
+
+def test_the_demo_button_has_a_daily_budget(monkeypatch):
+    from app import budget, demo
+    monkeypatch.setattr(budget, "DEMO_RUNS_PER_DAY", 0)
+    r = client.post("/api/demo/start")
+    assert r.status_code == 429, r.text
+    assert "today" in r.json()["detail"]
+    assert budget.in_flight() == 0      # a refused run holds nothing
+
+
+def test_only_so_many_pipelines_run_at_once(monkeypatch):
+    """The limit that actually stops a burst, and the one a visitor never meets:
+    a person runs the demo, watches it, runs it again."""
+    from app import budget
+    monkeypatch.setattr(budget, "MAX_CONCURRENT_RUNS", 2)
+    taken = []
+    try:
+        for _ in range(2):
+            budget.claim("test")
+            taken.append(1)
+        with pytest.raises(Exception) as caught:
+            budget.claim("test")
+        assert getattr(caught.value, "status_code", None) == 429
+    finally:
+        for _ in taken:
+            budget.release()
+    assert budget.in_flight() == 0
+
+
+def test_a_run_that_fails_gives_its_slot_back(monkeypatch):
+    """A slot leaked by a crashing run is a demo that refuses everyone from then
+    on — the failure mode of a guard that only releases on success."""
+    from app import adk_pipeline, budget, demo
+    before = budget.in_flight()
+
+    def explode(*_a, **_k):
+        raise RuntimeError("pipeline fell over")
+
+    monkeypatch.setattr(adk_pipeline, "run_overnight_adk", explode)
+    pid = demo.start()
+    for _ in range(100):
+        if demo.status(pid).get("state") == "failed":
+            break
+        time.sleep(0.05)
+    assert demo.status(pid)["state"] == "failed"
+    assert budget.in_flight() == before
+
+
+def test_the_page_can_read_the_run_limits_from_the_service():
+    limits = client.get("/api/limits").json()
+    assert limits["demo_runs_per_day"] >= 1
+    assert limits["max_concurrent_runs"] >= 1

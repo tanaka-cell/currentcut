@@ -11,7 +11,7 @@ import threading
 import traceback
 from pathlib import Path
 
-from . import adk_pipeline, config, progress, retention
+from . import adk_pipeline, budget, config, progress, retention
 from .models.schemas import AgentRun, Project
 from .storage import store
 
@@ -42,8 +42,15 @@ SHOOT_TITLES = {
 }
 
 
-def _launch(title: str, clips: list[str]) -> str:
-    """Create a project for these clips and run the pipeline on a worker thread."""
+def _launch(title: str, clips: list[str], kind: str = "demo",
+            daily_limit: int | None = None) -> str:
+    """Create a project for these clips and run the pipeline on a worker thread.
+
+    The slot is taken here rather than at the API, because this is the line
+    every run passes through however it was asked for — and it is released on
+    the worker thread's way out, so a run that fails still gives it back.
+    """
+    budget.claim(kind, daily_limit=daily_limit)
     project = Project(
         title=title,
         target_duration_seconds=90,
@@ -69,8 +76,14 @@ def _launch(title: str, clips: list[str]) -> str:
             traceback.print_exc()
             with _lock:
                 _jobs[project.id] = {"state": "failed", "error": str(exc)[:400]}
+        finally:
+            budget.release()
 
-    threading.Thread(target=run, daemon=True).start()
+    try:
+        threading.Thread(target=run, daemon=True).start()
+    except Exception:
+        budget.release()   # never started, so never releases itself
+        raise
     return project.id
 
 
@@ -84,7 +97,8 @@ def start(shoot: str = "") -> str:
     clips = demo_clips(shoot)
     if not clips:
         raise RuntimeError(f"no demo footage found in {config.demo_dir(shoot)}")
-    return _launch(SHOOT_TITLES.get(shoot, shoot), clips)
+    return _launch(SHOOT_TITLES.get(shoot, shoot), clips,
+                   kind="demo", daily_limit=budget.DEMO_RUNS_PER_DAY)
 
 
 def start_uploaded(title: str, clips: list[str]) -> str:
@@ -97,7 +111,10 @@ def start_uploaded(title: str, clips: list[str]) -> str:
     retention.sweep()
     if not clips:
         raise RuntimeError("no uploaded footage to run")
-    return _launch(title or "Uploaded footage (Overnight Run)", clips)
+    # The daily cap for uploads is enforced in upload.py, before the bytes are
+    # accepted; here the run only needs a concurrency slot.
+    return _launch(title or "Uploaded footage (Overnight Run)", clips,
+                   kind="upload")
 
 
 def status(project_id: str) -> dict:

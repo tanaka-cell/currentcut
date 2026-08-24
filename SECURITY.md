@@ -64,11 +64,20 @@ beginning `=` `+` `-` `@` is written as text, so opening the workbook runs
 nothing.
 
 **One anonymous caller cannot spend the instance.** Request rate, body size,
-upload count, per-file and total upload size, probed footage duration and a daily
-run budget are all bounded; ffmpeg and ffprobe are given deadlines, so one file
-they cannot make sense of does not wedge the only worker for ever. Project ids
-are checked before they touch a filesystem, because a URL path segment can
-contain a backslash and Windows reads that as three directories.
+upload count, per-file and total upload size, probed footage duration, how many
+pipelines run at once and how many run in a day are all bounded; ffmpeg and
+ffprobe are given deadlines, so one file they cannot make sense of does not wedge
+the only worker for ever. Project ids are checked before they touch a filesystem,
+because a URL path segment can contain a backslash and Windows reads that as
+three directories.
+
+The run budget was the last of those to arrive, on 2026-08-24. The upload route
+had one from the day it was written, because uploading footage obviously looked
+expensive; the demo button beside it, which runs the same pipeline over nine
+clips on the same keys, had none, and the rate limiter alone would have let a
+script start hundreds of runs a minute. Both now take a slot from
+`app/budget.py`. The limit that does the work is how many run *at once* - a
+visitor runs the demo, watches it, and runs it again, and never meets it.
 
 **What was given is not kept.** Uploaded footage and the runs made from it are
 swept after `CURRENTCUT_RETENTION_HOURS` (48 by default) — long enough for a
@@ -92,6 +101,21 @@ store afterwards, and the deletion is read back rather than assumed.
   services/agent/requirements.txt`, run 2026-08-15 in a throwaway virtualenv:
   no known vulnerabilities. That is a statement about one day. Re-run it when a
   pin moves, and run it somewhere other than the environment being checked.
+
+## Watching after the fact
+
+Dependencies are pinned, so the code does not drift - but what is *known* about
+those versions does, and nobody notices a new advisory by rereading
+requirements.txt. GitHub's Dependabot watches instead
+(`.github/dependabot.yml`, weekly, pip and the base image) and opens a pull
+request when something needs raising. Raising a pin is still deliberate: read
+the advisory, run the tests, and re-run `eval/` if the change is anywhere near
+the model clients, because a dependency bump has no business quietly changing
+what the comparator confirms.
+
+The provider's own spending cap is the guard that does not depend on this code
+being correct, and it is set in Google Cloud's console rather than here. A
+deployment that skips it is one bug away from an unbounded bill.
 
 ## Reporting something
 
