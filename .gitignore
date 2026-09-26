@@ -19,6 +19,9 @@ services/agent/output/
 # package": it is the output of one real run, served as static files so a
 # visitor can see the deliverables without waiting six minutes for their own.
 !services/agent/app/static/sample/**
+# The showreel's rendered film is the deliverable itself. Its score.wav is
+# not: audio/score.py regenerates it byte for byte.
+!motion/katachi-showreel/out/katachi-showreel.mp4
 .pytest_cache/
 .mypy_cache/
 .DS_Store

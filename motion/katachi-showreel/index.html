@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KATACHI Showreel</title>
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; height: 100%; background: #060607; color: #8c877e;
+    font: 12px/1.4 "JetBrains Mono", ui-monospace, monospace; }
+  body { display: grid; place-items: center; }
+  #wrap { width: min(100vw, calc((100vh - 48px) * 16 / 9)); }
+  #stage { display: block; width: 100%; height: auto; background: #0e0e10; }
+  #ui { display: flex; gap: 12px; align-items: center; padding: 10px 2px; }
+  #bar { flex: 1; height: 4px; background: #222; cursor: pointer; position: relative; }
+  #fill { position: absolute; inset: 0 auto 0 0; background: #ff4a1c; width: 0; }
+  button { background: none; border: 1px solid #333; color: #ddd; font: inherit;
+    padding: 4px 10px; cursor: pointer; }
+  body.render { display: block; background: #000; }
+  body.render #wrap { width: 1920px; }
+  body.render #stage { width: 1920px; height: 1080px; }
+  body.render #ui { display: none; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="stage" width="1920" height="1080"></canvas>
+  <div id="ui">
+    <button id="play">▶ play</button>
+    <div id="bar"><div id="fill"></div></div>
+    <span id="tc">00:00:00:00</span>
+  </div>
+</div>
+<audio id="score" src="audio/score.wav" preload="auto"></audio>
+<script src="lib/glyphs.js"></script>
+<script src="reel.js"></script>
+</body>
+</html>

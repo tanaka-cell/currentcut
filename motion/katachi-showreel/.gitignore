@@ -1,0 +1,6 @@
+out/stills/
+out/.sheet/
+out/.seg*
+out/.segs.txt
+out/render.log
+out/audio-check.png
