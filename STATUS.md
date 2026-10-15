@@ -124,8 +124,8 @@ and a payments vendor's explainer led instead. It is a true citation but not one
 to put on air; the data telop should probably require a primary source or else
 carry no 出典 at all.
 
-Deployment note: `gcloud` credentials live per-machine. `gcloud auth login` as
-`fieldcasterjp@gmail.com` is a prerequisite; `deploy.sh` wraps the rest.
+Deployment note: `gcloud` credentials live per-machine. `gcloud auth login` with
+the account that owns the project is a prerequisite; `deploy.sh` wraps the rest.
 
 ## English shoot (2026-08-04): ✅ the judges can read the output
 

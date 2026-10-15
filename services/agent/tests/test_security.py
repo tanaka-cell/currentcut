@@ -272,6 +272,35 @@ def test_the_demo_button_has_a_daily_budget(monkeypatch):
     assert budget.in_flight() == 0      # a refused run holds nothing
 
 
+def test_the_direct_run_route_has_the_same_budget(monkeypatch):
+    """Found on 2026-10-15: POST /projects/{id}/run started the pipeline without
+    passing the budget, so the demo button's limits could be walked around."""
+    from app import adk_pipeline, budget
+    calls = []
+    monkeypatch.setattr(adk_pipeline, "run_overnight_adk",
+                        lambda *a, **k: calls.append(a) or {"ok": True})
+    pid = client.post("/projects", json={"title": "budget check"}).json()["id"]
+
+    monkeypatch.setattr(budget, "DEMO_RUNS_PER_DAY", 0)
+    r = client.post(f"/projects/{pid}/run")
+    assert r.status_code == 429, r.text
+    assert calls == []                  # refused before anything was spent
+    assert budget.in_flight() == 0
+
+
+def test_the_direct_run_route_gives_its_slot_back(monkeypatch):
+    from app import adk_pipeline, budget
+    before = budget.in_flight()
+
+    def explode(*_a, **_k):
+        raise RuntimeError("pipeline fell over")
+
+    monkeypatch.setattr(adk_pipeline, "run_overnight_adk", explode)
+    pid = client.post("/projects", json={"title": "slot check"}).json()["id"]
+    assert client.post(f"/projects/{pid}/run").status_code == 500
+    assert budget.in_flight() == before
+
+
 def test_only_so_many_pipelines_run_at_once(monkeypatch):
     """The limit that actually stops a burst, and the one a visitor never meets:
     a person runs the demo, watches it, runs it again."""

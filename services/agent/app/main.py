@@ -208,10 +208,16 @@ def add_assets(project_id: str, body: AddAssets):
 
 @app.post("/projects/{project_id}/run")
 def start_overnight_run(project_id: str):
-    """Start Overnight Run (synchronous in Phase 1; async job in Phase 2)."""
+    """Start Overnight Run (synchronous in Phase 1; async job in Phase 2).
+
+    The same pipeline the demo button runs, over the same bundled footage, so it
+    takes a slot from the same budget. Without one this was the door the budget
+    was written to close: no daily count, no limit on how many at once.
+    """
     _require_project(project_id)
-    report = adk_pipeline.run_overnight_adk(project_id)
-    return report
+    budget.claim("demo", daily_limit=budget.DEMO_RUNS_PER_DAY)
+    with budget.RunSlot():
+        return adk_pipeline.run_overnight_adk(project_id)
 
 
 @app.get("/projects/{project_id}/report")
